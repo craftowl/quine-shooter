@@ -5,7 +5,7 @@
 # src/ の .h と .cpp を毎回探し直し、次を検査する。違反があればファイル名と行番号を出して失敗する。
 #   1. プラットフォームを判定するマクロが、main.cpp の1つの #if（#elif と #else を含む）の外にある
 #   2. 使わない関数（ADR 0006 の表のうち、確かめ方が「スクリプト」の行）を使っている
-#   3. 入力・時間・乱数の関数を、main.cpp、src/core/、src/debug/ の外で呼んでいる
+#   3. 入力・時間・乱数の関数（AGENT.md の「構造」の一覧）を、main.cpp、src/core/、src/debug/ の外で使っている
 # 500行を超えたファイルには警告だけを出す（wc -l と同じく、改行の数で数える）。
 # コメントと、文字列と文字のリテラルの中身は、検査の前に取り除く（生文字列 R"(...)" は扱わない）。
 
@@ -39,8 +39,19 @@ set(FORBIDDEN_RULES
 # nlohmann/json の j.get<T>() は許す（ADR 0006 で、レビューで確かめることになっている）
 set(ALLOWED_MEMBER_GET "(\\.|->)${WS}(template[ \t]+)?get${WS}<")
 
-# 入力・時間・乱数の関数（AGENT.md の「構造」）
-set(RESTRICTED_CALL_REGEX "${B}(GetFrameTime|GetTime|GetRandomValue|rand|IsKey[A-Za-z0-9_]*)${WS}\\(")
+# 入力・時間・乱数の関数（AGENT.md の「構造」の一覧）
+set(INPUT_FUNCS "IsKey[A-Za-z0-9_]*|GetKeyPressed|GetCharPressed|IsMouse[A-Za-z0-9_]*|GetMouse[A-Za-z0-9_]*|IsGamepad[A-Za-z0-9_]*|GetGamepad[A-Za-z0-9_]*")
+set(RESTRICTED_RULES
+    "${B}(${INPUT_FUNCS})${WS}\\(|入力の関数"
+    "${B}(GetFrameTime|GetTime|time|clock)${WS}\\(|時間の関数"
+    "(std${WS}::${WS}chrono${E}|${B}chrono${WS}::)|std::chrono"
+    "#${WS}include${WS}<(chrono|ctime|time\\.h)>|時間のヘッダ"
+    "${B}(GetRandomValue|rand|srand)${WS}\\(|乱数の関数"
+    "${B}random_device${E}|std::random_device"
+    "#${WS}include${WS}<random>|<random>"
+)
+# メンバー関数の time() と clock()（stage.time() など）は対象外
+set(ALLOWED_MEMBER_TIME "(\\.|->)${WS}(time|clock)${WS}\\(")
 
 set(violations "")
 set(violation_count 0)
@@ -212,8 +223,17 @@ foreach(path IN LISTS source_files)
         endforeach()
 
         # 3. 入力・時間・乱数の関数
-        if(NOT may_call_restricted AND line MATCHES "${RESTRICTED_CALL_REGEX}")
-            add_violation("${rel}" ${line_no} "入力・時間・乱数の関数は main.cpp、src/core/、src/debug/ でだけ呼ぶ" "${line}")
+        if(NOT may_call_restricted)
+            string(REGEX REPLACE "${ALLOWED_MEMBER_TIME}" " " line_for_restricted "${line}")
+            foreach(rule IN LISTS RESTRICTED_RULES)
+                string(FIND "${rule}" "|" sep REVERSE)
+                string(SUBSTRING "${rule}" 0 ${sep} pattern)
+                math(EXPR name_start "${sep} + 1")
+                string(SUBSTRING "${rule}" ${name_start} -1 name)
+                if(line_for_restricted MATCHES "${pattern}")
+                    add_violation("${rel}" ${line_no} "入力・時間・乱数の関数は main.cpp、src/core/、src/debug/ でだけ使う: ${name}" "${line}")
+                endif()
+            endforeach()
         endif()
     endforeach()
 endforeach()

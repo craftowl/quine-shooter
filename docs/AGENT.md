@@ -83,8 +83,11 @@
 - 更新と描画を混ぜない。`update()` の中で `Draw*` を呼ばない
 - `update()` に渡す時間は常に固定の `FIXED_DT`（[ADR 0003](decisions/0003-game-loop.md)）
 - `update()` の結果が入力だけで決まるようにする。ADR 0003 の「同じ入力なら同じ結果になる」は、これが前提になっている
-  - `update()` の中で `GetFrameTime()`、`GetTime()`、`GetRandomValue()`、`rand()`、`IsKey*()` を呼ばない
-  - これらの関数を呼んでよいのは、`main.cpp`、`src/core/`、`src/debug/` だけ
+  - `update()` の中で、次の入力・時間・乱数の関数を使わない
+    - 入力：`IsKey*()`、`GetKeyPressed()`、`GetCharPressed()`、`IsMouse*()`、`GetMouse*()`、`IsGamepad*()`、`GetGamepad*()`
+    - 時間：`GetFrameTime()`、`GetTime()`、`time()`、`clock()`、`std::chrono`、`<chrono>`・`<ctime>`・`<time.h>` の include
+    - 乱数：`GetRandomValue()`、`rand()`、`srand()`、`std::random_device`、`<random>` の include
+  - これらを使ってよいのは、`main.cpp`、`src/core/`、`src/debug/` だけ。メンバー関数の `time()` と `clock()`（`stage.time()` など）は対象外
   - 入力はフレームの最初に読んで渡す
   - 乱数は自前の生成器を使い、シードはプレイのたびに同じ値にする（毎回同じ弾幕になり、覚えて攻略でき、検証でも同じ場面を再現できるため）。値の置き場所は、調整値の JSON の形を決めるときに決める
 - プラットフォームで分ける `#if` は、`main.cpp` の先頭にある1つの `#if` の中だけに書く（[ADR 0004](decisions/0004-platforms.md)）。`#elif` と `#else` は同じ `#if` の一部に数える
