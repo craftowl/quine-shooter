@@ -43,6 +43,14 @@ endif()
 
 target_link_libraries(2DShooting PRIVATE raylib)
 
+# Web 版（emcmake でビルドしたとき）。HTML を出力し、web/shell.html をひな形に使う
+if(EMSCRIPTEN)
+    set(WEB_SHELL ${CMAKE_SOURCE_DIR}/web/shell.html)
+    set_target_properties(2DShooting PROPERTIES SUFFIX ".html")
+    target_link_options(2DShooting PRIVATE --shell-file ${WEB_SHELL})
+    set_property(TARGET 2DShooting APPEND PROPERTY LINK_DEPENDS ${WEB_SHELL})
+endif()
+
 # ソースの検査（AGENT.md の「検査」）。ビルドのたびに src/ を探し直し、違反があればビルドを止める
 add_custom_target(check_sources ALL
     COMMAND ${CMAKE_COMMAND} -DPROJECT_ROOT=${CMAKE_SOURCE_DIR} -P ${CMAKE_SOURCE_DIR}/cmake/check_sources.cmake

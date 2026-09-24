@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>2DShooting</title>
+  <style>
+    body { margin: 0; background: black; overflow: hidden; }
+    canvas { display: block; margin: 0 auto; }
+  </style>
+</head>
+<body>
+  <canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas>
+  <script>
+    var Module = {
+      print: (text) => console.log(text),
+      printErr: (text) => console.error(text),
+      canvas: document.getElementById('canvas'),
+    };
+    // キー入力が canvas に届くように、起動時にフォーカスを移す
+    window.addEventListener('load', () => Module.canvas.focus());
+  </script>
+  {{{ SCRIPT }}}
+</body>
+</html>

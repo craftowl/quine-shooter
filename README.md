@@ -35,3 +35,47 @@ cmake --build build/release
 ```
 
 `-DCMAKE_BUILD_TYPE` を省くと Debug になる。
+
+## ビルド（Web 版）
+
+### 必要なもの
+
+- デスクトップ版と同じもの（CMake、git、ネットワーク）
+- Emscripten 6.0.9（emsdk で入れる）
+
+ビルドを確かめた環境：macOS 27.0、Emscripten 6.0.9（emsdk）、CMake 4.2.1
+
+### emsdk を入れる（最初の1回だけ）
+
+`<emsdk の置き場所>` は好きな場所でよい（例：`~/emsdk`）。
+
+```sh
+git clone https://github.com/emscripten-core/emsdk.git <emsdk の置き場所>
+cd <emsdk の置き場所>
+./emsdk install 6.0.9
+./emsdk activate 6.0.9
+```
+
+### 手順
+
+emsdk の設定はシェルごとに読み込む必要がある。ビルドするシェルで、先に `emsdk_env.sh` を読み込む。
+
+```sh
+source <emsdk の置き場所>/emsdk_env.sh
+
+# Debug（ほかの構成も、デスクトップ版と同じく -DCMAKE_BUILD_TYPE で選ぶ）
+emcmake cmake -S . -B build/web-debug -DCMAKE_BUILD_TYPE=Debug
+cmake --build build/web-debug
+
+# 手元のブラウザで開く（サーバーが立ち、ブラウザが開く。終わるときは Ctrl+C）
+emrun build/web-debug/2DShooting.html
+```
+
+`2DShooting.html` をファイルとして直接開くと、ブラウザが wasm の読み込みを止めることが多い。`emrun` のように、サーバーから開く。
+
+ブラウザが `http://localhost` を開けないとき（常に HTTPS で接続する設定など）は、IP アドレスで開く。
+
+```sh
+emrun --no-browser --hostname 127.0.0.1 build/web-debug/2DShooting.html
+# ブラウザで http://127.0.0.1:6931/2DShooting.html を開く
+```
