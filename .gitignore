@@ -1,0 +1,11 @@
+# ビルドの出力（build/、build-web/ など）
+/build*/
+
+# macOS
+.DS_Store
+
+# Claude Code が作る作業用のディレクトリ
+.cc-writes/
+
+# 手元だけに置く資料（公開しない）
+/local/
