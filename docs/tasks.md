@@ -107,13 +107,18 @@
 **着手前に決めること**
 
 - スクリプトの置き場所（design.md §3 にない。`tools/` には quine_pack しかない）。候補：`cmake/`、`tools/checks/`。決めたら design.md §3 に足す
+  - **決定（2026-09-24）**：`cmake/check_sources.cmake`。design.md §3 に足した
 - 「`std::stoi` など、文字列を数値に変える関数」に何を含めるか。案：`std::stoi`、`stol`、`stoll`、`stoul`、`stoull`、`stof`、`stod`、`stold`。`atoi` や `strtol` のような C の関数も含めるか
+  - **決定（2026-09-24）**：`stoi`、`stol`、`stoll`、`stoul`、`stoull`、`stof`、`stod`、`stold` に加え、C の `atoi`、`atol`、`atoll`、`atof`、`strtol`、`strtoll`、`strtoul`、`strtoull`、`strtof`、`strtod`、`strtold` も止める（C の関数は例外を投げないが、「数値は JSON から読む」は同じく当てはまる）
 - コメントと文字列の中に出てくる名前も違反にするか（文字列の一致で判定するので、除くならその処理が要る）
+  - **決定（2026-09-24）**：コメント（`//` と `/* */`）と、文字列と文字のリテラルの中身を除いてから検査する。生文字列 `R"(…)"` は扱わない
 - 文字列の一致で起きる、すり抜けと誤判定への対処。次の案で判定する
+  - **決定（2026-09-24）**：下の案どおりにし、さらに3つ足す。(1) 名前と `(` や `<` の間に空白があっても止める（`x.at (1)` など）(2) 文字列を数値に変える関数は `std::` がなくても止める（ADL で `stoi(s)` が通るため）(3) `#include <filesystem>` も止める
   - `.at(` と `->at(`、`.value(` と `->value(` を違反にする。`.value_or(` は違反にしない
   - `std::get<` と `std::get(` に加えて、`std::` を付けない `get<`（C++20 では ADL で `get<0>(t)` が通る）も違反にする。`get` の前が識別子の文字でないときだけ一致させる（`budget<` を止めない）。ただし nlohmann/json の `j.get<int>()` のような `.get<`、`->get<`、`.template get<`、`->template get<` は除く（ADR 0006 で、レビューで確かめることになっている）
   - `rand` は、前後が識別子の文字でないときだけ一致させる（`operand` や `random_seed` を止めない）
 - 「`main.cpp` の先頭にある1つの `#if`」の「先頭」の決め方（案：`main.cpp` の中でプラットフォームのマクロを使う `#if` が1つだけで、その `#if` から対応する `#endif` までの外にマクロが出てこない）
+  - **決定（2026-09-24）**：案どおり
 
 **受け入れ基準**
 

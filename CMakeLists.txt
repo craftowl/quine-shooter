@@ -42,3 +42,11 @@ else()
 endif()
 
 target_link_libraries(2DShooting PRIVATE raylib)
+
+# ソースの検査（AGENT.md の「検査」）。ビルドのたびに src/ を探し直し、違反があればビルドを止める
+add_custom_target(check_sources ALL
+    COMMAND ${CMAKE_COMMAND} -DPROJECT_ROOT=${CMAKE_SOURCE_DIR} -P ${CMAKE_SOURCE_DIR}/cmake/check_sources.cmake
+    COMMENT "ソースを検査する"
+    VERBATIM
+)
+add_dependencies(2DShooting check_sources)
