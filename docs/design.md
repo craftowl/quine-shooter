@@ -1,6 +1,6 @@
 # 設計（design.md）
 
-> 状態: 骨子（2026-09-22）。雛形の作成に必要な部分だけを決めてある。「未決」の項目は実装が進んだ週に決める。2026-09-23 に、AGENT.md の見直しに合わせて §2〜§5 を更新した。同日、文書の見直し（ADR 0002 の更新など）に合わせて §4 と §5 を更新した。2026-09-24 に、ゲームの規則（requirements.md §1）に合わせて、§5 に調整値の一覧を足した。同日、§2 のコード例に `SetExitKey(KEY_NULL)` を足した（raylib 6.0 では、何もしないと Esc で `WindowShouldClose()` が真になり、requirements.md §1 の「Esc ではゲームを終了しない」に反するため）。また、§5 の当たり判定を決める時期を「敵弾を作るとき」から「自機の弾と敵の文字の判定を作るとき」に変えた（当たり判定が最初に要るのは、敵弾より先に作る自機の弾と敵の文字の判定のため）。同じく、§5 の押した瞬間の入力の扱いを決める時期を「入力の処理を作るとき」から「押した瞬間の入力を最初に使うとき（シーン遷移）」に変えた（最初に作る入力の処理は自機の移動で、押し続けている間しか使わないため）。
+> 状態: 骨子（2026-09-22）。雛形の作成に必要な部分だけを決めてある。「未決」の項目は実装が進んだ週に決める。2026-09-23 に、AGENT.md の見直しに合わせて §2〜§5 を更新した。同日、文書の見直し（ADR 0002 の更新など）に合わせて §4 と §5 を更新した。2026-09-24 に、ゲームの規則（requirements.md §1）に合わせて、§5 に調整値の一覧を足した。同日、§2 のコード例に `SetExitKey(KEY_NULL)` を足した（raylib 6.0 では、何もしないと Esc で `WindowShouldClose()` が真になり、requirements.md §1 の「Esc ではゲームを終了しない」に反するため）。また、§5 の当たり判定を決める時期を「敵弾を作るとき」から「自機の弾と敵の文字の判定を作るとき」に変えた（当たり判定が最初に要るのは、敵弾より先に作る自機の弾と敵の文字の判定のため）。同じく、§5 の押した瞬間の入力の扱いを決める時期を「入力の処理を作るとき」から「押した瞬間の入力を最初に使うとき（シーン遷移）」に変えた（最初に作る入力の処理は自機の移動で、押し続けている間しか使わないため）。T01 の実装のあと、§2 のコード例の関数を、グローバルな `static` 関数から名前空間 `stg` の中の無名名前空間に移した（AGENT.md の「すべてのコードを名前空間 `stg` に入れる」に合わせるため）。
 
 ## 1. ゲームループ
 
@@ -17,17 +17,29 @@
 デスクトップと Web ではメインループの形が違う。この差は `main.cpp` の先頭にある1つの `#if` に閉じ込める（[ADR 0004](decisions/0004-platforms.md)、AGENT.md）。
 
 ```cpp
-// main.cpp
-static void frame();   // 1フレーム分の処理（上の 1〜3）
+// main.cpp（main() のほかは、名前空間 stg に入れる。AGENT.md）
+namespace stg {
+namespace {
+void frame();   // 1フレーム分の処理（上の 1〜3）
+}
+}
 
 // プラットフォームの違いは、このブロックの中だけに書く
 #if defined(PLATFORM_WEB)
 #include <emscripten/emscripten.h>
-static void run_main_loop() { emscripten_set_main_loop(frame, 0, 1); }
+namespace stg {
+namespace {
+void run_main_loop() { emscripten_set_main_loop(frame, 0, 1); }
+}
+}
 #else
-static void run_main_loop() {
+namespace stg {
+namespace {
+void run_main_loop() {
     SetTargetFPS(60);
     while (!WindowShouldClose()) frame();
+}
+}
 }
 #endif
 
@@ -36,7 +48,7 @@ int main() {
     InitWindow(window_width, window_height, "...");
     // Esc で終了しない（requirements.md §1）。InitWindow の中で終了キーが Esc に戻されるので、InitWindow の後に呼ぶ
     SetExitKey(KEY_NULL);
-    run_main_loop();
+    stg::run_main_loop();
     CloseWindow();
 }
 ```
@@ -98,7 +110,7 @@ int main() {
 | ウィンドウの大きさの決め方（デスクトップと Web。[ADR 0008](decisions/0008-screen-scaling.md)） | 雛形を作るとき | 画面（Web はブラウザの表示領域）に収まる最大の大きさ、決まった大きさ |
 | 高 DPI の試行にかける時間の上限（[ADR 0008](decisions/0008-screen-scaling.md)） | 雛形を作るとき | 半日、1日など |
 | Web 版でファイルを開く基準（[ADR 0006](decisions/0006-error-handling.md) の「実行ファイルの場所を基準に開く」が、Web では成り立たない。決めたら ADR 0006 と AGENT.md を直す） | 雛形を作るとき | Emscripten の仮想ファイルシステム上の決まったパスを `main.cpp` で決めて渡す、raylib の `GetApplicationDirectory()` の結果をそのまま使う（Web で何を返すかを raylib のソースで確かめてから） |
-| 書式（インデントなど） | 雛形を作るとき | AI が決めて完了報告に書く、clang-format を入れる（ADR が要る） |
+| 書式（インデントなど） | 決定（2026-09-24）：AI が決めて完了報告に書く。clang-format は入れない | — |
 | 押した瞬間の入力の扱い（`update()` が0回や2回呼ばれるフレーム） | 押した瞬間の入力を最初に使うとき（シーン遷移） | 押した瞬間を次の `update()` まで持ち越す、`update()` ごとに押しているかどうかの変化から判定する |
 | Windows 版をビルドするコンパイラ（[ADR 0004](decisions/0004-platforms.md)。例外と警告の設定に関係する。決めたら、コンパイラの最低バージョンを [ADR 0001](decisions/0001-tech-stack.md) に書く） | Windows 版の CI を作るとき | MSVC、MinGW |
 | シーン管理 | シーン遷移を作るとき | `std::variant`、仮想関数、列挙型と switch |
