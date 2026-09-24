@@ -1,6 +1,7 @@
 #include "raylib.h"
 
 #include "core/fixed_step.h"
+#include "debug/debug_overlay.h"
 
 namespace stg {
 namespace {
@@ -61,6 +62,9 @@ void render() {
     BeginDrawing();
     ClearBackground(BLACK);
     DrawText("@", static_cast<int>(marker_x), SCREEN_HEIGHT / 2, MARKER_FONT_SIZE, RAYWHITE);
+#ifdef DEBUG
+    debug::draw_overlay();
+#endif
     EndDrawing();
 }
 
@@ -80,7 +84,13 @@ int main() {
     InitWindow(stg::SCREEN_WIDTH, stg::SCREEN_HEIGHT, "2DShooting");
     // Esc で終了しない（requirements.md §1）。InitWindow の中で Esc に戻されるので、InitWindow の後に呼ぶ
     SetExitKey(KEY_NULL);
+#ifdef DEBUG
+    stg::debug::init_overlay();
+#endif
     stg::run_main_loop();
+#ifdef DEBUG
+    stg::debug::shutdown_overlay();
+#endif
     CloseWindow();
     return 0;
 }

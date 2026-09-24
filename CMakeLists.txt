@@ -20,9 +20,47 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(raylib)
 
+# Dear ImGui と rlImGui（ADR 0001）。どちらも CMake の設定を持たないので、ここでライブラリにする
+FetchContent_Declare(
+    imgui
+    GIT_REPOSITORY https://github.com/ocornut/imgui.git
+    GIT_TAG v1.92.9b
+    GIT_SHALLOW TRUE
+)
+FetchContent_Declare(
+    rlimgui
+    GIT_REPOSITORY https://github.com/raylib-extras/rlImGui.git
+    GIT_TAG Raylib_6_0
+    GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(imgui rlimgui)
+
+# Debug と RelWithDebInfo でだけリンクする（EXCLUDE_FROM_ALL なので、Release ではビルドもしない）
+add_library(rlimgui STATIC EXCLUDE_FROM_ALL
+    ${imgui_SOURCE_DIR}/imgui.cpp
+    ${imgui_SOURCE_DIR}/imgui_draw.cpp
+    ${imgui_SOURCE_DIR}/imgui_tables.cpp
+    ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+    ${rlimgui_SOURCE_DIR}/rlImGui.cpp
+)
+target_compile_features(rlimgui PRIVATE cxx_std_20)
+# SYSTEM を付けて、外部のヘッダでは警告を出さない
+target_include_directories(rlimgui SYSTEM PUBLIC ${imgui_SOURCE_DIR} ${rlimgui_SOURCE_DIR})
+# アイコン用のフォント（Font Awesome）を埋め込まない
+target_compile_definitions(rlimgui PUBLIC NO_FONT_AWESOME)
+target_link_libraries(rlimgui PUBLIC raylib)
+# 例外を無効にする（警告の設定は付けない。AGENT.md）
+if(MSVC)
+    target_compile_options(rlimgui PRIVATE /EHs-c-)
+    target_compile_definitions(rlimgui PRIVATE _HAS_EXCEPTIONS=0)
+else()
+    target_compile_options(rlimgui PRIVATE -fno-exceptions)
+endif()
+
 add_executable(2DShooting
     src/main.cpp
     src/core/fixed_step.cpp
+    src/debug/debug_overlay.cpp
 )
 
 target_compile_features(2DShooting PRIVATE cxx_std_20)
@@ -41,7 +79,7 @@ else()
     target_compile_options(2DShooting PRIVATE -Wall -Wextra -Wpedantic -Werror -fno-exceptions)
 endif()
 
-target_link_libraries(2DShooting PRIVATE raylib)
+target_link_libraries(2DShooting PRIVATE raylib $<$<CONFIG:Debug,RelWithDebInfo>:rlimgui>)
 
 # Web 版（emcmake でビルドしたとき）。HTML を出力し、web/shell.html をひな形に使う
 if(EMSCRIPTEN)

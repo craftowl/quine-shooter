@@ -179,6 +179,11 @@
 **着手前に決めること**
 
 - ImGui と rlImGui にも `-fno-exceptions` を付けるか（AGENT.md は範囲を限っていない。優先度は低い）
+  - **決定（2026-09-24）**：付ける（警告の設定は付けない）
+- **決定（2026-09-24、着手の前の確認で追加）**：
+  - rlImGui が埋め込むアイコン用のフォント（Font Awesome）は、`NO_FONT_AWESOME` を定義して外す。ADR 0001 にないフォントを増やさないため
+  - ImGui の `imgui.ini` は書き出さない（`io.IniFilename = nullptr`）。作業ディレクトリにファイルを作らないため
+  - `src/debug/debug_overlay.h` と `.cpp` に、名前空間 `stg::debug` の `init_overlay()`（`InitWindow` の後に1回）、`shutdown_overlay()`（`CloseWindow` の前に1回）、`draw_overlay()`（`render()` の中、`EndDrawing` の前）を置く。FPS と1フレームの時間は、`draw_overlay()` の中で `GetFPS()` と `GetFrameTime()` から読む。ヘッダーの中身は `#ifdef DEBUG` で囲む
 
 **受け入れ基準**
 
