@@ -36,6 +36,8 @@ cmake --build build/release
 
 `-DCMAKE_BUILD_TYPE` を省くと Debug になる。
 
+ビルドすると、`assets/`（フォントなど）が実行ファイルの横にコピーされる。ゲームは実行ファイルの場所を基準にファイルを開くので、実行ファイルを別の場所へ移すときは、`assets/` も一緒に移す。
+
 ## ビルド（Web 版）
 
 ### 必要なもの
@@ -70,6 +72,8 @@ cmake --build build/web-debug
 # 手元のブラウザで開く（サーバーが立ち、ブラウザが開く。終わるときは Ctrl+C）
 emrun build/web-debug/2DShooting.html
 ```
+
+`assets/` は `2DShooting.data` にまとめられる。サーバーに置くときは、`2DShooting.html`、`.js`、`.wasm`、`.data` を同じ場所に置く。
 
 `2DShooting.html` をファイルとして直接開くと、ブラウザが wasm の読み込みを止めることが多い。`emrun` のように、サーバーから開く。
 

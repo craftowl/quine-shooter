@@ -61,6 +61,7 @@ add_executable(2DShooting
     src/main.cpp
     src/core/fixed_step.cpp
     src/debug/debug_overlay.cpp
+    src/render/text_renderer.cpp
 )
 
 target_compile_features(2DShooting PRIVATE cxx_std_20)
@@ -87,6 +88,21 @@ if(EMSCRIPTEN)
     set_target_properties(2DShooting PROPERTIES SUFFIX ".html")
     target_link_options(2DShooting PRIVATE --shell-file ${WEB_SHELL})
     set_property(TARGET 2DShooting APPEND PROPERTY LINK_DEPENDS ${WEB_SHELL})
+endif()
+
+# 素材（assets/）を、実行ファイルの場所から開けるところに置く（ADR 0006 §6）。
+# デスクトップ版は実行ファイルの横へコピーし、Web 版は仮想ファイルシステムの /assets に入れる
+file(GLOB_RECURSE ASSET_FILES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/assets/*)
+if(EMSCRIPTEN)
+    target_link_options(2DShooting PRIVATE "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/assets@/assets")
+    set_property(TARGET 2DShooting APPEND PROPERTY LINK_DEPENDS ${ASSET_FILES})
+else()
+    add_custom_target(copy_assets ALL
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/assets $<TARGET_FILE_DIR:2DShooting>/assets
+        COMMENT "素材を実行ファイルの横へコピーする"
+        VERBATIM
+    )
+    add_dependencies(2DShooting copy_assets)
 endif()
 
 # ソースの検査（AGENT.md の「検査」）。ビルドのたびに src/ を探し直し、違反があればビルドを止める

@@ -1,0 +1,31 @@
+#pragma once
+
+#include "raylib.h"
+
+namespace stg::render {
+
+// 文字の大きさ。480×640 の座標での px（ADR 0008）
+inline constexpr int FONT_SIZE = 12;
+
+// 480×640 の座標で文字を描く。フォントを拡大率に合わせた大きさで読み込み、Camera2D で拡大して描く（ADR 0008）
+class TextRenderer {
+public:
+    // 12 × scale px でフォントを読み込み、Camera2D の拡大率を scale にする。12 × scale は整数でなければならない
+    [[nodiscard]] bool load(const char* font_path, float scale);
+    void unload();
+
+    // BeginMode2D と EndMode2D。この間の座標は 480×640
+    void begin();
+    void end();
+
+    // position は 480×640 の座標。画面のピクセルに合わせて丸めて描く
+    void draw_text(const char* text, Vector2 position, Color color) const;
+    // 描いたときの幅と高さ（480×640 の座標）
+    [[nodiscard]] Vector2 measure_text(const char* text) const;
+
+private:
+    Font font_{};
+    Camera2D camera_{};
+};
+
+}  // namespace stg::render
