@@ -1,10 +1,13 @@
 #include "raylib.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 
 #include "core/fixed_step.h"
+#include "core/load_errors.h"
 #include "debug/debug_overlay.h"
+#include "render/error_screen.h"
 #include "render/text_renderer.h"
 
 namespace stg {
@@ -14,7 +17,8 @@ constexpr int SCREEN_WIDTH = 480;
 constexpr int SCREEN_HEIGHT = 640;
 constexpr const char* WINDOW_TITLE = "2DShooting";
 
-void frame();  // 1フレーム分の処理（design.md §1）
+void frame();        // 1フレーム分の処理（design.md §1）
+void error_frame();  // 起動時に読めなかったファイルがあるときの、1フレーム分の処理（tasks.md T07）
 
 // 拡大率を 1/4 単位で決める（0.25 刻み。tasks.md T05）。拡大率は、480×640 の 1px が実際の画面の何ピクセルになるか。
 // 使える大きさ（実際のピクセル）に 3:4 のまま収まる最大の値を、切り下げて返す。
@@ -62,10 +66,11 @@ int choose_scale_quarters(int available_width, int available_height, float pixel
     return quarters;
 }
 
-[[maybe_unused]] void run_desktop_loop() {
+// Esc では閉じないので（SetExitKey）、閉じるボタンを押すまで回る
+[[maybe_unused]] void run_desktop_loop(void (*frame_func)()) {
     SetTargetFPS(60);
     while (!WindowShouldClose()) {
-        frame();
+        frame_func();
     }
 }
 
@@ -98,8 +103,12 @@ int open_window() {
     return quarters;
 }
 
-void run_main_loop() {
-    emscripten_set_main_loop(frame, 0, 1);
+// エラー画面の閉じ方の案内。Web 版には閉じるボタンがないので、タブを閉じるまで出し続ける（ADR 0006 §6）
+constexpr const char* QUIT_HINT = "Close the tab to quit.";
+
+// タブを閉じるまで回る
+void run_main_loop(void (*frame_func)()) {
+    emscripten_set_main_loop(frame_func, 0, 1);
 }
 
 }  // namespace
@@ -113,8 +122,10 @@ int open_window() {
     return open_desktop_window(true);
 }
 
-void run_main_loop() {
-    run_desktop_loop();
+constexpr const char* QUIT_HINT = "Close the window to quit.";
+
+void run_main_loop(void (*frame_func)()) {
+    run_desktop_loop(frame_func);
 }
 
 }  // namespace
@@ -129,8 +140,10 @@ int open_window() {
     return open_desktop_window(false);
 }
 
-void run_main_loop() {
-    run_desktop_loop();
+constexpr const char* QUIT_HINT = "Close the window to quit.";
+
+void run_main_loop(void (*frame_func)()) {
+    run_desktop_loop(frame_func);
 }
 
 }  // namespace
@@ -146,8 +159,10 @@ constexpr const char* FONT_FILE = "assets/fonts/JetBrainsMono-Regular.ttf";  // 
 constexpr float MARKER_SPEED = 120.0f;  // 1秒に進む px
 
 float marker_x = 0.0f;
+float screen_scale = 1.0f;  // 480×640 の 1px が実際の画面の何ピクセルか。起動時に決める
 FixedStep fixed_step;
 render::TextRenderer text_renderer;
+LoadErrors load_errors;
 
 void update(float dt) {
     marker_x += MARKER_SPEED * dt;
@@ -189,6 +204,14 @@ void frame() {
     render();
 }
 
+// ゲームの処理（update）は回さず、エラー画面を描くだけ
+void error_frame() {
+    BeginDrawing();
+    ClearBackground(BLACK);
+    render::draw_error_screen(load_errors, QUIT_HINT, screen_scale);
+    EndDrawing();
+}
+
 }  // namespace
 }  // namespace stg
 
@@ -196,25 +219,33 @@ int main() {
     // ウィンドウの大きさは起動時に決めて固定する（ADR 0008）
     const int scale_quarters = stg::open_window();
     const float scale = static_cast<float>(scale_quarters) / 4.0f;
+    stg::screen_scale = scale;
     TraceLog(LOG_INFO, "SCREEN: Scale %.2f, window %d x %d, render %d x %d", static_cast<double>(scale),
              GetScreenWidth(), GetScreenHeight(), GetRenderWidth(), GetRenderHeight());
     // Esc で終了しない（requirements.md §1）。InitWindow の中で Esc に戻されるので、InitWindow の後に呼ぶ
     SetExitKey(KEY_NULL);
 
-    // 読めなかったときのエラー画面は T07 で作る。それまでは終了する
-    const char* font_path = TextFormat("%s%s", GetApplicationDirectory(), stg::FONT_FILE);
-    if (!stg::text_renderer.load(font_path, scale)) {
-        CloseWindow();
-        return 1;
+    // 起動時に読むファイル。1つ読めなくても残りを読み続け、読めなかったものをまとめてエラー画面に出す（ADR 0006 §6）。
+    // params.json とウェーブ定義は、T12 と T20 でここに足す
+    const bool loaded = stg::text_renderer.load(stg::FONT_FILE, scale, stg::load_errors);
+
+    if (loaded) {
+#ifdef DEBUG
+        stg::debug::init_overlay();
+#endif
+        stg::run_main_loop(stg::frame);
+#ifdef DEBUG
+        stg::debug::shutdown_overlay();
+#endif
+    } else {
+        // ゲームの処理を始めずに、閉じるまでエラー画面を出し続ける
+        assert(!stg::load_errors.empty());
+        TraceLog(LOG_WARNING, "STARTUP: %d file(s) could not be loaded, showing the error screen",
+                 static_cast<int>(stg::load_errors.entries().size()));
+        stg::run_main_loop(stg::error_frame);
     }
-#ifdef DEBUG
-    stg::debug::init_overlay();
-#endif
-    stg::run_main_loop();
-#ifdef DEBUG
-    stg::debug::shutdown_overlay();
-#endif
+
     stg::text_renderer.unload();
     CloseWindow();
-    return 0;
+    return loaded ? 0 : 1;
 }
