@@ -9,6 +9,11 @@ if(NOT is_multi_config AND NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug CACHE STRING "ビルドの構成（Debug、RelWithDebInfo、Release）" FORCE)
 endif()
 
+# MSVC では、C++ のランタイムを3つの構成すべてで静的にリンクする（Debug は /MTd、ほかは /MT。tasks.md の T10）。
+# 開発ツールの入っていない Windows でも起動できるようにする。raylib などの依存もそろえる必要があるので、
+# 依存を取り込む前に決める。MSVC 以外のコンパイラでは使われない
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
 # 依存（ADR 0001）。SYSTEM を付けて、外部のヘッダでは警告を出さない
 include(FetchContent)
 FetchContent_Declare(
@@ -78,9 +83,14 @@ target_compile_definitions(2DShooting PRIVATE $<$<CONFIG:Debug,RelWithDebInfo>:D
 
 # 警告をエラーとして扱い、例外を無効にする（AGENT.md、ADR 0006）。自分のコードだけに付ける
 if(MSVC)
-    # MSVC の設定は、Windows 版の CI（T10）で確かめる
-    target_compile_options(2DShooting PRIVATE /W4 /WX /EHs-c-)
+    # /utf-8：ソースを UTF-8 として読む。日本語のコメントが、コードページ（日本語の Windows では 932）で
+    # 表せない文字として警告（C4819）になり、/WX でビルドが止まるのを防ぐ
+    target_compile_options(2DShooting PRIVATE /W4 /WX /EHs-c- /utf-8)
     target_compile_definitions(2DShooting PRIVATE _HAS_EXCEPTIONS=0)
+    # Release だけ、コンソールのウィンドウを出さない（ウィンドウのアプリにする。tasks.md の T10）。
+    # 入口は main() のままにするので、WinMain ではなく mainCRTStartup から始める
+    set_target_properties(2DShooting PROPERTIES WIN32_EXECUTABLE $<CONFIG:Release>)
+    target_link_options(2DShooting PRIVATE $<$<CONFIG:Release>:/ENTRY:mainCRTStartup>)
 else()
     target_compile_options(2DShooting PRIVATE -Wall -Wextra -Wpedantic -Werror -fno-exceptions)
 endif()

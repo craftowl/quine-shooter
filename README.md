@@ -1,6 +1,7 @@
 # 2DShooting
 
 [![Web](https://github.com/craftowl/quine-shooter/actions/workflows/web.yml/badge.svg)](https://github.com/craftowl/quine-shooter/actions/workflows/web.yml)
+[![Windows](https://github.com/craftowl/quine-shooter/actions/workflows/windows.yml/badge.svg)](https://github.com/craftowl/quine-shooter/actions/workflows/windows.yml)
 
 **ブラウザで遊ぶ：[https://craftowl.github.io/quine-shooter/](https://craftowl.github.io/quine-shooter/)**
 
@@ -8,7 +9,7 @@
 
 仕様と設計は [docs/](docs/) にある。
 
-## ビルド（デスクトップ版）
+## ビルド（macOS 版）
 
 ### 必要なもの
 
@@ -42,11 +43,44 @@ cmake --build build/release
 
 ビルドすると、`assets/`（フォントなど）が実行ファイルの横にコピーされる。ゲームは実行ファイルの場所を基準にファイルを開くので、実行ファイルを別の場所へ移すときは、`assets/` も一緒に移す。
 
+## ビルド（Windows 版）
+
+### 必要なもの
+
+- Visual Studio 2026（C++ によるデスクトップ開発のワークロード）。Build Tools for Visual Studio 2026 でもよい
+- CMake 4.2 以上（Visual Studio 2026 のジェネレータ `Visual Studio 18 2026` が使える版）
+- git（依存のライブラリを取得するのに使う）
+- 最初の設定のときにネットワーク（raylib を GitHub から取得する）
+
+CMake が 4.2 より古いと、設定の段階で「ジェネレータが見つからない」というエラーになる。ジェネレータは CMakeLists.txt を読む前に選ばれるので、CMakeLists.txt では古い CMake を見分けられない。
+
+ビルドを確かめた環境：GitHub Actions の `windows-2025-vs2026`（Visual Studio 2026、CMake 4.4.3）
+
+### 手順
+
+Visual Studio のジェネレータ（既定）は、1つのディレクトリに3つの構成を持つ。構成はビルドのときに `--config` で選ぶ。
+
+```sh
+cmake -S . -B build/windows
+
+# Debug（開発用）
+cmake --build build/windows --config Debug
+.\build\windows\Debug\2DShooting.exe
+
+# RelWithDebInfo（計測とプレイテスト用）
+cmake --build build/windows --config RelWithDebInfo
+
+# Release（配布用）
+cmake --build build/windows --config Release
+```
+
+実行ファイルは `build/windows/<構成>/2DShooting.exe` にでき、その横に `assets/` がコピーされる。C++ のランタイムは静的にリンクするので、開発ツールの入っていない Windows でも、`2DShooting.exe` と `assets/` を一緒に置けば起動できる。Release だけは、起動したときにコンソールのウィンドウを出さない。
+
 ## ビルド（Web 版）
 
 ### 必要なもの
 
-- デスクトップ版と同じもの（CMake、git、ネットワーク）
+- macOS 版と同じもの（CMake 3.25 以上、git、ネットワーク）
 - Emscripten 6.0.9（emsdk で入れる）
 
 ビルドを確かめた環境：macOS 27.0、Emscripten 6.0.9（emsdk）、CMake 4.2.1

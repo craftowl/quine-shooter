@@ -62,7 +62,8 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    # 公開が重なったときは、途中で止めずに順番に行う
+    # 公開が重なったときは、動いている公開を途中で止めない。待てる実行は1つだけで、その間に来た実行は取り消される
+    # （最後に来た実行が公開される）
     concurrency:
       group: pages
       cancel-in-progress: false
