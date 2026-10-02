@@ -6,6 +6,7 @@
 
 #include "core/fixed_step.h"
 #include "core/load_errors.h"
+#include "debug/allocation_counter.h"
 #include "debug/debug_overlay.h"
 #include "render/error_screen.h"
 #include "render/text_renderer.h"
@@ -111,9 +112,23 @@ void run_main_loop(void (*frame_func)()) {
     emscripten_set_main_loop(frame_func, 0, 1);
 }
 
+#ifdef DEBUG
+// Web 版では、OS のライブラリの確保が operator new を通らないので、判定しない（ADR 0007）
+constexpr bool (*OS_ALLOCATION_FILTER)() = nullptr;
+#endif
+
 }  // namespace
 }  // namespace stg
 #elif defined(__APPLE__)
+#ifdef DEBUG
+#include <dlfcn.h>
+#include <execinfo.h>
+#include <mach-o/dyld.h>
+#include <mach-o/getsect.h>
+
+#include <cstdint>
+#include <cstring>
+#endif
 namespace stg {
 namespace {
 
@@ -127,6 +142,136 @@ constexpr const char* QUIT_HINT = "Close the window to quit.";
 void run_main_loop(void (*frame_func)()) {
     run_desktop_loop(frame_func);
 }
+
+#ifdef DEBUG
+// 実行ファイルや共有ライブラリのコード（__TEXT）が置かれたアドレスの範囲
+struct CodeRange {
+    std::uintptr_t begin = 0;
+    std::uintptr_t end = 0;
+
+    [[nodiscard]] bool contains(const void* address) const {
+        const auto value = reinterpret_cast<std::uintptr_t>(address);
+        return begin <= value && value < end;
+    }
+};
+
+CodeRange text_range(const mach_header* header) {
+    unsigned long size = 0;
+    const std::uint8_t* const data = getsegmentdata(reinterpret_cast<const mach_header_64*>(header), "__TEXT", &size);
+    if (data == nullptr) {
+        return {};
+    }
+    const auto begin = reinterpret_cast<std::uintptr_t>(data);
+    return {begin, begin + size};
+}
+
+bool ends_with(const char* text, const char* suffix) {
+    const std::size_t text_length = std::strlen(text);
+    const std::size_t suffix_length = std::strlen(suffix);
+    return text_length >= suffix_length && std::strcmp(text + text_length - suffix_length, suffix) == 0;
+}
+
+struct ImageRanges {
+    CodeRange game;       // この実行ファイル
+    CodeRange libcxx;     // libc++
+    CodeRange libcxxabi;  // libc++abi
+};
+
+ImageRanges find_image_ranges() {
+    ImageRanges ranges;
+    Dl_info self{};
+    if (dladdr(reinterpret_cast<void*>(&find_image_ranges), &self) != 0) {
+        ranges.game = text_range(static_cast<const mach_header*>(self.dli_fbase));
+    }
+    for (std::uint32_t i = 0; i < _dyld_image_count(); ++i) {
+        const char* const name = _dyld_get_image_name(i);
+        if (name == nullptr) {
+            continue;
+        }
+        if (ends_with(name, "/libc++.1.dylib")) {
+            ranges.libcxx = text_range(_dyld_get_image_header(i));
+        } else if (ends_with(name, "/libc++abi.dylib")) {
+            ranges.libcxxabi = text_range(_dyld_get_image_header(i));
+        }
+    }
+    return ranges;
+}
+
+// 呼び出し履歴の1段が、operator new の中か
+enum class CounterFrame { OperatorNew, Other, Unknown };
+
+// dladdr は遅い（この実行ファイルでは名前を順に探すので、1回 10µs ほど）。確保を数える仕組みの中の段のアドレスは
+// 数十個しかないので、調べた結果を覚えておく
+struct CachedFrame {
+    const void* address = nullptr;
+    CounterFrame kind = CounterFrame::Unknown;
+};
+constexpr int FRAME_CACHE_SIZE = 64;
+thread_local CachedFrame frame_cache[FRAME_CACHE_SIZE];
+thread_local int frame_cache_count = 0;
+
+CounterFrame classify_counter_frame(const void* address) {
+    for (int i = 0; i < frame_cache_count; ++i) {
+        if (frame_cache[i].address == address) {
+            return frame_cache[i].kind;
+        }
+    }
+    Dl_info info{};
+    if (dladdr(address, &info) == 0) {
+        return CounterFrame::Unknown;
+    }
+    // dladdr は名前の先頭の _ を1つ除いて返す
+    const bool is_operator_new = info.dli_sname != nullptr && (std::strncmp(info.dli_sname, "_Znwm", 5) == 0 ||
+                                                               std::strncmp(info.dli_sname, "_Znam", 5) == 0);
+    const CounterFrame kind = is_operator_new ? CounterFrame::OperatorNew : CounterFrame::Other;
+    if (frame_cache_count < FRAME_CACHE_SIZE) {
+        frame_cache[frame_cache_count] = {address, kind};
+        ++frame_cache_count;
+    }
+    return kind;
+}
+
+// 確保が OS のライブラリから来たか（ADR 0007）。macOS では、OS のライブラリ（GPU のドライバー、CoreText など）の確保も、
+// 置き換えた operator new を通る。呼び出し履歴を operator new からさかのぼり、libc++ を飛ばして、
+// 最初に現れたのがこの実行ファイルならゲームの確保、それ以外なら OS の確保とする。
+// libc++ を飛ばすのは、Debug では std::string の関数の実体が libc++ の中にあり、そこから operator new を呼ぶため。
+// operator new の段を見つけるまでは classify_counter_frame で調べ、その先はアドレスの範囲で比べる
+bool is_os_allocation() {
+    static const ImageRanges ranges = find_image_ranges();
+    constexpr int MAX_FRAMES = 32;
+    void* frames[MAX_FRAMES];
+    const int count = backtrace(frames, MAX_FRAMES);
+    int i = 0;
+    // operator new までは、確保を数える仕組みの中。dladdr は近くの名前を返すので、数える処理の段が
+    // operator new の名前に見えることがある。operator new に見える段が続くときは、まとめて飛ばす
+    bool passed_operator_new = false;
+    for (; i < count; ++i) {
+        // 数える仕組みの段は、必ずこの実行ファイルの中にある。外の段には dladdr を使わない
+        const CounterFrame kind =
+            ranges.game.contains(frames[i]) ? classify_counter_frame(frames[i]) : CounterFrame::Other;
+        if (kind == CounterFrame::Unknown) {
+            return false;  // 分からないときは、ゲームの確保とみなす（違反を見逃さない側に倒す）
+        }
+        if (kind == CounterFrame::OperatorNew) {
+            passed_operator_new = true;
+        } else if (passed_operator_new) {
+            break;
+        }
+    }
+    for (; i < count; ++i) {
+        if (ranges.game.contains(frames[i])) {
+            return false;
+        }
+        if (ranges.libcxx.contains(frames[i]) || ranges.libcxxabi.contains(frames[i])) {
+            continue;
+        }
+        return true;
+    }
+    return false;
+}
+
+constexpr bool (*OS_ALLOCATION_FILTER)() = is_os_allocation;
+#endif
 
 }  // namespace
 }  // namespace stg
@@ -145,6 +290,11 @@ constexpr const char* QUIT_HINT = "Close the window to quit.";
 void run_main_loop(void (*frame_func)()) {
     run_desktop_loop(frame_func);
 }
+
+#ifdef DEBUG
+// Windows で OS のライブラリの確保が operator new を通るかは、確かめていない（T10）。いまは判定しない
+constexpr bool (*OS_ALLOCATION_FILTER)() = nullptr;
+#endif
 
 }  // namespace
 }  // namespace stg
@@ -197,6 +347,9 @@ void render() {
 }
 
 void frame() {
+#ifdef DEBUG
+    debug::begin_frame_allocations();
+#endif
     const int steps = fixed_step.advance(GetFrameTime());
     for (int i = 0; i < steps; ++i) {
         update(FIXED_DT);
@@ -216,6 +369,10 @@ void error_frame() {
 }  // namespace stg
 
 int main() {
+#ifdef DEBUG
+    // OS のライブラリの確保を、ゲームの確保と区別する（ADR 0007）
+    stg::debug::set_os_allocation_filter(stg::OS_ALLOCATION_FILTER);
+#endif
     // ウィンドウの大きさは起動時に決めて固定する（ADR 0008）
     const int scale_quarters = stg::open_window();
     const float scale = static_cast<float>(scale_quarters) / 4.0f;
@@ -232,6 +389,8 @@ int main() {
     if (loaded) {
 #ifdef DEBUG
         stg::debug::init_overlay();
+        // ここで起動が終わる。これより後は、データの読み込みの外で確保しない（ADR 0007）
+        stg::debug::end_startup_allocations();
 #endif
         stg::run_main_loop(stg::frame);
 #ifdef DEBUG
@@ -242,6 +401,9 @@ int main() {
         assert(!stg::load_errors.empty());
         TraceLog(LOG_WARNING, "STARTUP: %d file(s) could not be loaded, showing the error screen",
                  static_cast<int>(stg::load_errors.entries().size()));
+#ifdef DEBUG
+        stg::debug::end_startup_allocations();
+#endif
         stg::run_main_loop(stg::error_frame);
     }
 

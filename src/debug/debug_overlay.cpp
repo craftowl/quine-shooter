@@ -6,6 +6,8 @@
 #include "raylib.h"
 #include "rlImGui.h"
 
+#include "debug/allocation_counter.h"
+
 namespace stg::debug {
 
 void init_overlay() {
@@ -24,6 +26,9 @@ void draw_overlay() {
     ImGui::Begin("Debug", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
     ImGui::Text("FPS: %d", GetFPS());
     ImGui::Text("Frame: %.2f ms", GetFrameTime() * 1000.0f);
+    // 前のフレームの確保回数と、起動後の違反の累計（ADR 0007）
+    ImGui::Text("Alloc/frame: %d", last_frame_allocations());
+    ImGui::Text("Alloc violations: %d", allocation_violations());
     ImGui::End();
     rlImGuiEnd();
 }
