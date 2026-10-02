@@ -67,8 +67,10 @@ add_executable(2DShooting
     src/core/fixed_step.cpp
     src/core/input.cpp
     src/core/load_errors.cpp
+    src/core/window.cpp
     src/debug/allocation_counter.cpp
     src/debug/debug_overlay.cpp
+    src/game/game.cpp
     src/game/player.cpp
     src/render/error_screen.cpp
     src/render/text_renderer.cpp

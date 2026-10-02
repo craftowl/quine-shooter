@@ -1,81 +1,22 @@
 #include "raylib.h"
 
-#include <algorithm>
 #include <cassert>
-#include <cmath>
 
 #include "core/fixed_step.h"
 #include "core/input.h"
 #include "core/load_errors.h"
+#include "core/window.h"
 #include "debug/allocation_counter.h"
 #include "debug/debug_overlay.h"
-#include "game/player.h"
+#include "game/game.h"
 #include "render/error_screen.h"
 #include "render/text_renderer.h"
 
 namespace stg {
 namespace {
 
-constexpr int SCREEN_WIDTH = 480;
-constexpr int SCREEN_HEIGHT = 640;
-constexpr const char* WINDOW_TITLE = "2DShooting";
-
 void frame();        // 1フレーム分の処理（design.md §1）
 void error_frame();  // 起動時に読めなかったファイルがあるときの、1フレーム分の処理（tasks.md T07）
-
-// 拡大率を 1/4 単位で決める（0.25 刻み。tasks.md T05）。拡大率は、480×640 の 1px が実際の画面の何ピクセルになるか。
-// 使える大きさ（実際のピクセル）に 3:4 のまま収まる最大の値を、切り下げて返す。
-// 1/4 単位で持つと、ウィンドウ（120 × 160 の倍数）とフォント（3 の倍数）の大きさが必ず整数になる
-constexpr int SCALE_QUARTERS_MIN = 4;  // 拡大率 1.0。これより小さいと、フォントが 12px を下回る（ADR 0002）
-
-// pixel_ratio は、OS やブラウザの座標（ポイント、CSS px）の 1 が、実際の何ピクセルか。
-// 最小の拡大率は、OS やブラウザの座標で 1.0 にする（高 DPI の画面で文字が小さくなりすぎないように）
-int choose_scale_quarters(int available_width, int available_height, float pixel_ratio) {
-    const int min_quarters =
-        std::max(SCALE_QUARTERS_MIN, static_cast<int>(std::ceil(static_cast<float>(SCALE_QUARTERS_MIN) * pixel_ratio)));
-    const int fit = std::min(available_width * 4 / SCREEN_WIDTH, available_height * 4 / SCREEN_HEIGHT);
-    return std::max(fit, min_quarters);
-}
-
-// デスクトップ版のウィンドウを、モニターに収まる大きさで作り、拡大率を 1/4 単位で返す。
-// InitWindow の前にはモニターの大きさを取れないので、隠して作ってから大きさと位置を直し、表示する。
-// high_dpi のときは、ウィンドウの大きさ（ポイント）の pixel_ratio 倍のピクセルで描く（macOS の Retina では 2 倍）
-[[maybe_unused]] int open_desktop_window(bool high_dpi) {
-    unsigned int flags = FLAG_WINDOW_HIDDEN;
-    if (high_dpi) {
-        flags |= FLAG_WINDOW_HIGHDPI;
-    }
-    SetConfigFlags(flags);
-    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, WINDOW_TITLE);
-
-    const float pixel_ratio = high_dpi ? GetWindowScaleDPI().x : 1.0f;
-    const int monitor = GetCurrentMonitor();
-    const int monitor_width = GetMonitorWidth(monitor);  // ポイント
-    const int monitor_height = GetMonitorHeight(monitor);
-    // タスクバー、メニューバー、タイトルバーの分として、高さの 10% を使わない
-    const int quarters = choose_scale_quarters(static_cast<int>(static_cast<float>(monitor_width) * pixel_ratio),
-                                               static_cast<int>(static_cast<float>(monitor_height * 9 / 10) * pixel_ratio),
-                                               pixel_ratio);
-
-    // ウィンドウの大きさはポイントで渡す
-    const int width = static_cast<int>(std::lround(static_cast<float>(SCREEN_WIDTH * quarters / 4) / pixel_ratio));
-    const int height = static_cast<int>(std::lround(static_cast<float>(SCREEN_HEIGHT * quarters / 4) / pixel_ratio));
-    SetWindowSize(width, height);
-    const Vector2 monitor_position = GetMonitorPosition(monitor);
-    SetWindowPosition(static_cast<int>(monitor_position.x) + (monitor_width - width) / 2,
-                      static_cast<int>(monitor_position.y) + (monitor_height - height) / 2);
-    ClearWindowState(FLAG_WINDOW_HIDDEN);
-    TraceLog(LOG_INFO, "SCREEN: Pixel ratio %.2f", static_cast<double>(pixel_ratio));
-    return quarters;
-}
-
-// Esc では閉じないので（SetExitKey）、閉じるボタンを押すまで回る
-[[maybe_unused]] void run_desktop_loop(void (*frame_func)()) {
-    SetTargetFPS(60);
-    while (!WindowShouldClose()) {
-        frame_func();
-    }
-}
 
 }  // namespace
 }  // namespace stg
@@ -307,54 +248,17 @@ namespace {
 
 constexpr const char* FONT_FILE = "assets/fonts/JetBrainsMono-Regular.ttf";  // 実行ファイルの場所から（ADR 0006）
 
-// 自機と当たり判定を描く文字（tasks.md T09 の仮の文字）。当たり判定の点は、自機の文字の中心に重ねる
-constexpr char PLAYER_CHAR = 'A';
-constexpr char HITBOX_CHAR = '.';
-constexpr Color HITBOX_COLOR = RED;  // 自機の文字に重ねても見えるように、色を変える
-
 float screen_scale = 1.0f;  // 480×640 の 1px が実際の画面の何ピクセルか。起動時に決める
 FixedStep fixed_step;
 render::TextRenderer text_renderer;
 LoadErrors load_errors;
-Player player;
-Rectangle player_movable_area{};  // 当たり判定の中心が動ける範囲。起動時に、自機の文字の大きさから決める
-
-// 文字の点や線の中心を position に合わせて描くときの、draw_text に渡す位置のずれ
-Vector2 glyph_center_offset(char character) {
-    const Rectangle bounds = text_renderer.glyph_bounds(character);
-    return {bounds.x + bounds.width / 2.0f, bounds.y + bounds.height / 2.0f};
-}
-
-// 自機の文字が画面に収まるように、当たり判定の中心が動ける範囲を決める（tasks.md T09）
-Rectangle compute_player_movable_area() {
-    const Rectangle bounds = text_renderer.glyph_bounds(PLAYER_CHAR);
-    const float half_width = bounds.width / 2.0f;
-    const float half_height = bounds.height / 2.0f;
-    const Rectangle area = {half_width, half_height, static_cast<float>(SCREEN_WIDTH) - bounds.width,
-                            static_cast<float>(SCREEN_HEIGHT) - bounds.height};
-    TraceLog(LOG_INFO, "PLAYER: Glyph %.2f x %.2f, movable area x %.2f-%.2f, y %.2f-%.2f", static_cast<double>(bounds.width),
-             static_cast<double>(bounds.height), static_cast<double>(area.x), static_cast<double>(area.x + area.width),
-             static_cast<double>(area.y), static_cast<double>(area.y + area.height));
-    return area;
-}
-
-void update(const InputState& input, float dt) {
-    update_player(player, input, player_movable_area, dt);
-}
-
-// character の点や線の中心が center に来るように描く
-void draw_char_centered(char character, Vector2 center, Color color) {
-    const char text[] = {character, '\0'};
-    const Vector2 offset = glyph_center_offset(character);
-    text_renderer.draw_text(text, {center.x - offset.x, center.y - offset.y}, color);
-}
+Game game;
 
 void render() {
     BeginDrawing();
     ClearBackground(BLACK);
     text_renderer.begin();
-    draw_char_centered(PLAYER_CHAR, player.position, RAYWHITE);
-    draw_char_centered(HITBOX_CHAR, player.position, HITBOX_COLOR);
+    game.draw(text_renderer);
     text_renderer.end();
 #ifdef DEBUG
     debug::draw_overlay();
@@ -370,7 +274,7 @@ void frame() {
     const InputState input = read_input();
     const int steps = fixed_step.advance(GetFrameTime());
     for (int i = 0; i < steps; ++i) {
-        update(input, FIXED_DT);
+        game.update(input, FIXED_DT);
     }
     render();
 }
@@ -405,7 +309,7 @@ int main() {
     const bool loaded = stg::text_renderer.load(stg::FONT_FILE, scale, stg::load_errors);
 
     if (loaded) {
-        stg::player_movable_area = stg::compute_player_movable_area();
+        stg::game.start(stg::text_renderer);
 #ifdef DEBUG
         stg::debug::init_overlay();
         // ここで起動が終わる。これより後は、データの読み込みの外で確保しない（ADR 0007）
