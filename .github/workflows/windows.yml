@@ -33,11 +33,14 @@ jobs:
           cmake -S . -B build/windows
           cmake --build build/windows --config $env:CONFIG
 
-      # dumpbin は開発者用の環境を読み込まないと PATH に入らないので、vswhere で場所を探す
+      # dumpbin は開発者用の環境を読み込まないと PATH に入らないので、vswhere で場所を探す。
+      # イメージには古い版のツール（VS 2019 の世代）も入っているので、ツールの版（VC\Tools\MSVC\<版>）が最も新しいものを使う
       - name: dumpbin の場所を探す
         run: |
           $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-          $dumpbin = & $vswhere -latest -products * -find 'VC\Tools\MSVC\**\bin\Hostx64\x64\dumpbin.exe' | Select-Object -First 1
+          $dumpbin = & $vswhere -latest -products * -find 'VC\Tools\MSVC\**\bin\Hostx64\x64\dumpbin.exe' |
+            Sort-Object { [version](Get-Item $_).Directory.Parent.Parent.Parent.Name } |
+            Select-Object -Last 1
           if (-not $dumpbin) { throw 'dumpbin.exe が見つからない' }
           Write-Output "dumpbin: $dumpbin"
           "DUMPBIN=$dumpbin" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
@@ -64,7 +67,6 @@ jobs:
             'GDI32.dll'
             'SHELL32.dll'
             'WINMM.dll'
-            'OPENGL32.dll'
           )
           $output = & $env:DUMPBIN /nologo /dependents build/windows/Release/2DShooting.exe
           $output | Write-Output
