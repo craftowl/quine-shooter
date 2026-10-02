@@ -1,5 +1,9 @@
 # 2DShooting
 
+[![Web](https://github.com/craftowl/quine-shooter/actions/workflows/web.yml/badge.svg)](https://github.com/craftowl/quine-shooter/actions/workflows/web.yml)
+
+**ブラウザで遊ぶ：[https://craftowl.github.io/quine-shooter/](https://craftowl.github.io/quine-shooter/)**
+
 自分のソースコードでできた敵を撃ち崩す弾幕シューティング（C++20 + raylib）。
 
 仕様と設計は [docs/](docs/) にある。
@@ -52,7 +56,7 @@ cmake --build build/release
 `<emsdk の置き場所>` は好きな場所でよい（例：`~/emsdk`）。
 
 ```sh
-git clone https://github.com/emscripten-core/emsdk.git <emsdk の置き場所>
+git clone --branch 6.0.9 https://github.com/emscripten-core/emsdk.git <emsdk の置き場所>
 cd <emsdk の置き場所>
 ./emsdk install 6.0.9
 ./emsdk activate 6.0.9

@@ -1,0 +1,71 @@
+# Web 版を3つの構成でビルドし、main のときは Release を GitHub Pages に公開する（docs/tasks.md の T11）
+# アクションは actions/ で始まるものだけを、コミットの SHA で固定して使う（ADR 0001）
+name: Web
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    strategy:
+      # 1つの構成が失敗しても、ほかの構成の結果も見られるようにする
+      fail-fast: false
+      matrix:
+        config: [Debug, RelWithDebInfo, Release]
+    env:
+      CONFIG: ${{ matrix.config }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # README の「emsdk を入れる」と同じ手順。キャッシュは使わない
+      - name: emsdk を入れる
+        run: |
+          git clone --branch 6.0.9 https://github.com/emscripten-core/emsdk.git "$RUNNER_TEMP/emsdk"
+          cd "$RUNNER_TEMP/emsdk"
+          ./emsdk install 6.0.9
+          ./emsdk activate 6.0.9
+
+      # README の Web 版の手順と同じ。検査スクリプトもこのビルドの中で動く
+      - name: ビルドする
+        run: |
+          source "$RUNNER_TEMP/emsdk/emsdk_env.sh"
+          emcmake cmake -S . -B build/web -DCMAKE_BUILD_TYPE="$CONFIG"
+          cmake --build build/web
+
+      # 公開するのは Release だけ。入口にするため、HTML だけ index.html に名前を変える
+      - name: 公開するファイルをまとめる
+        if: matrix.config == 'Release'
+        run: |
+          mkdir -p _site
+          cp build/web/2DShooting.html _site/index.html
+          cp build/web/2DShooting.js build/web/2DShooting.wasm build/web/2DShooting.data _site/
+
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        if: matrix.config == 'Release'
+        with:
+          path: _site
+
+  deploy:
+    # 公開するのは main のときだけ。3つの構成のビルドがすべて通ったときに限る
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    # 公開が重なったときは、途中で止めずに順番に行う
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
