@@ -282,7 +282,7 @@ namespace stg {
 namespace {
 
 // Windows は高 DPI の設定を使わない。GLFW が DPI に対応したアプリとして動くので、OS は引き伸ばさず、
-// モニターの大きさもウィンドウの大きさもピクセルになる（見込み。Windows では確かめていない。T10）
+// モニターの大きさもウィンドウの大きさもピクセルになる（T10 で確かめた。ADR 0008）
 int open_window() {
     return open_desktop_window(false);
 }
