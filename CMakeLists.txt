@@ -60,9 +60,11 @@ endif()
 add_executable(2DShooting
     src/main.cpp
     src/core/fixed_step.cpp
+    src/core/input.cpp
     src/core/load_errors.cpp
     src/debug/allocation_counter.cpp
     src/debug/debug_overlay.cpp
+    src/game/player.cpp
     src/render/error_screen.cpp
     src/render/text_renderer.cpp
 )

@@ -70,4 +70,15 @@ Vector2 TextRenderer::measure_text(const char* text) const {
     return MeasureTextEx(font_, text, static_cast<float>(FONT_SIZE), 0.0f);
 }
 
+Rectangle TextRenderer::glyph_bounds(char character) const {
+    assert(font_.texture.id != 0);
+    // DrawTextEx は、文字の画像（アトラスの範囲）を、描く位置から (offsetX, offsetY) ずらし、
+    // FONT_SIZE / baseSize 倍して描く（raylib 6.0 の DrawTextCodepoint）。glyphPadding の分は透明なので含めない
+    const GlyphInfo glyph = GetGlyphInfo(font_, character);
+    const Rectangle atlas = GetGlyphAtlasRec(font_, character);
+    const float factor = static_cast<float>(FONT_SIZE) / static_cast<float>(font_.baseSize);
+    return {static_cast<float>(glyph.offsetX) * factor, static_cast<float>(glyph.offsetY) * factor, atlas.width * factor,
+            atlas.height * factor};
+}
+
 }  // namespace stg::render

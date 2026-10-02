@@ -5,9 +5,11 @@
 #include <cmath>
 
 #include "core/fixed_step.h"
+#include "core/input.h"
 #include "core/load_errors.h"
 #include "debug/allocation_counter.h"
 #include "debug/debug_overlay.h"
+#include "game/player.h"
 #include "render/error_screen.h"
 #include "render/text_renderer.h"
 
@@ -305,40 +307,54 @@ namespace {
 
 constexpr const char* FONT_FILE = "assets/fonts/JetBrainsMono-Regular.ttf";  // 実行ファイルの場所から（ADR 0006）
 
-// 雛形の確認用に、画面を横切る文字を1つと、四隅と中央の目印を描く。ゲームの中身ができたら消す
-constexpr float MARKER_SPEED = 120.0f;  // 1秒に進む px
+// 自機と当たり判定を描く文字（tasks.md T09 の仮の文字）。当たり判定の点は、自機の文字の中心に重ねる
+constexpr char PLAYER_CHAR = 'A';
+constexpr char HITBOX_CHAR = '.';
+constexpr Color HITBOX_COLOR = RED;  // 自機の文字に重ねても見えるように、色を変える
 
-float marker_x = 0.0f;
 float screen_scale = 1.0f;  // 480×640 の 1px が実際の画面の何ピクセルか。起動時に決める
 FixedStep fixed_step;
 render::TextRenderer text_renderer;
 LoadErrors load_errors;
+Player player;
+Rectangle player_movable_area{};  // 当たり判定の中心が動ける範囲。起動時に、自機の文字の大きさから決める
 
-void update(float dt) {
-    marker_x += MARKER_SPEED * dt;
-    if (marker_x > static_cast<float>(SCREEN_WIDTH)) {
-        marker_x = 0.0f;
-    }
+// 文字の点や線の中心を position に合わせて描くときの、draw_text に渡す位置のずれ
+Vector2 glyph_center_offset(char character) {
+    const Rectangle bounds = text_renderer.glyph_bounds(character);
+    return {bounds.x + bounds.width / 2.0f, bounds.y + bounds.height / 2.0f};
 }
 
-void draw_corner_marks() {
-    const char* mark = "+";
-    const Vector2 size = text_renderer.measure_text(mark);
-    const float right = static_cast<float>(SCREEN_WIDTH) - size.x;
-    const float bottom = static_cast<float>(SCREEN_HEIGHT) - size.y;
-    text_renderer.draw_text(mark, {0.0f, 0.0f}, RAYWHITE);
-    text_renderer.draw_text(mark, {right, 0.0f}, RAYWHITE);
-    text_renderer.draw_text(mark, {0.0f, bottom}, RAYWHITE);
-    text_renderer.draw_text(mark, {right, bottom}, RAYWHITE);
-    text_renderer.draw_text(mark, {right / 2.0f, bottom / 2.0f}, RAYWHITE);
+// 自機の文字が画面に収まるように、当たり判定の中心が動ける範囲を決める（tasks.md T09）
+Rectangle compute_player_movable_area() {
+    const Rectangle bounds = text_renderer.glyph_bounds(PLAYER_CHAR);
+    const float half_width = bounds.width / 2.0f;
+    const float half_height = bounds.height / 2.0f;
+    const Rectangle area = {half_width, half_height, static_cast<float>(SCREEN_WIDTH) - bounds.width,
+                            static_cast<float>(SCREEN_HEIGHT) - bounds.height};
+    TraceLog(LOG_INFO, "PLAYER: Glyph %.2f x %.2f, movable area x %.2f-%.2f, y %.2f-%.2f", static_cast<double>(bounds.width),
+             static_cast<double>(bounds.height), static_cast<double>(area.x), static_cast<double>(area.x + area.width),
+             static_cast<double>(area.y), static_cast<double>(area.y + area.height));
+    return area;
+}
+
+void update(const InputState& input, float dt) {
+    update_player(player, input, player_movable_area, dt);
+}
+
+// character の点や線の中心が center に来るように描く
+void draw_char_centered(char character, Vector2 center, Color color) {
+    const char text[] = {character, '\0'};
+    const Vector2 offset = glyph_center_offset(character);
+    text_renderer.draw_text(text, {center.x - offset.x, center.y - offset.y}, color);
 }
 
 void render() {
     BeginDrawing();
     ClearBackground(BLACK);
     text_renderer.begin();
-    draw_corner_marks();
-    text_renderer.draw_text("@", {marker_x, static_cast<float>(SCREEN_HEIGHT) / 2.0f}, RAYWHITE);
+    draw_char_centered(PLAYER_CHAR, player.position, RAYWHITE);
+    draw_char_centered(HITBOX_CHAR, player.position, HITBOX_COLOR);
     text_renderer.end();
 #ifdef DEBUG
     debug::draw_overlay();
@@ -350,9 +366,11 @@ void frame() {
 #ifdef DEBUG
     debug::begin_frame_allocations();
 #endif
+    // 入力はフレームの最初に1回読み、このフレームのすべての update() に渡す（design.md §1）
+    const InputState input = read_input();
     const int steps = fixed_step.advance(GetFrameTime());
     for (int i = 0; i < steps; ++i) {
-        update(FIXED_DT);
+        update(input, FIXED_DT);
     }
     render();
 }
@@ -387,6 +405,7 @@ int main() {
     const bool loaded = stg::text_renderer.load(stg::FONT_FILE, scale, stg::load_errors);
 
     if (loaded) {
+        stg::player_movable_area = stg::compute_player_movable_area();
 #ifdef DEBUG
         stg::debug::init_overlay();
         // ここで起動が終わる。これより後は、データの読み込みの外で確保しない（ADR 0007）

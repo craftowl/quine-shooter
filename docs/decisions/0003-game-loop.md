@@ -3,6 +3,7 @@
 - 日付: 2026-09-22
 - 状態: 採用
 - 更新: 2026-09-23（コード例の変数名を、design.md の関数 `frame()` と重ならない名前に変えた）
+- 更新: 2026-10-02（コード例を、フレームの最初に読んだ入力を `update()` に渡す形に直した。T09）
 
 ## 決定
 
@@ -14,11 +15,12 @@
 constexpr float FIXED_DT = 1.0f / 60.0f;
 constexpr float MAX_FRAME_TIME = 0.25f;
 
+const InputState input = read_input();  // 入力はフレームの最初に1回だけ読む
 float frame_time = GetFrameTime();
 if (frame_time > MAX_FRAME_TIME) frame_time = MAX_FRAME_TIME;
 accumulator += frame_time;
 while (accumulator >= FIXED_DT) {
-    update(FIXED_DT);
+    update(input, FIXED_DT);  // どの回にも同じ入力を渡す
     accumulator -= FIXED_DT;
 }
 render();

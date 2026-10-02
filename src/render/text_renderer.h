@@ -28,6 +28,8 @@ public:
     void draw_text(const char* text, Vector2 position, Color color) const;
     // 描いたときの幅と高さ（480×640 の座標）
     [[nodiscard]] Vector2 measure_text(const char* text) const;
+    // 文字を draw_text で (0, 0) に描いたときに、点や線が実際に描かれる範囲（480×640 の座標）
+    [[nodiscard]] Rectangle glyph_bounds(char character) const;
 
 private:
     Font font_{};
