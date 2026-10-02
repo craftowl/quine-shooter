@@ -7,6 +7,7 @@
 # Claude Code が作る作業用のディレクトリと、個人用の設定
 .cc-writes/
 .claude/settings.local.json
+.claude/hooks/review-gate.sh
 
 # 手元だけに置く資料（公開しない）
 /local/
