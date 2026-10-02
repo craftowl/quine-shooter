@@ -44,7 +44,7 @@
 ## エラー処理（[ADR 0006](decisions/0006-error-handling.md)）
 
 - 起こりうる失敗（ファイルがない、JSON の書き間違いなど）は戻り値で返す。バグ（起こってはいけない状態）は `assert` で止める
-- 値を返す関数は `std::optional<T>`、値を返さない関数は `bool` を返し、`[[nodiscard]]` を付ける。失敗の詳細（ファイル名、キー名、理由）は、失敗した場所で `TraceLog` に出す
+- 値を返す関数は `std::optional<T>`、値を返さない関数は `bool` を返し、`[[nodiscard]]` を付ける。成功と失敗のほかに「何もしなかった」も返す関数は、`enum class` で返してよい（ADR 0006）。失敗の詳細（ファイル名、キー名、理由）は、失敗した場所で `TraceLog` に出す
 - 例外を投げる標準ライブラリの関数は、次の表のとおり使わない。メモリ不足（`std::bad_alloc`）は対象外で、強制終了してよい
 
 | 使わない | 代わりの書き方 | 確かめ方 |
@@ -90,7 +90,7 @@
     - 乱数：`GetRandomValue()`、`rand()`、`srand()`、`std::random_device`、`<random>` の include
   - これらを使ってよいのは、`main.cpp`、`src/core/`、`src/debug/` だけ。メンバー関数の `time()` と `clock()`（`stage.time()` など）は対象外
   - 入力はフレームの最初に読んで渡す
-  - 乱数は自前の生成器を使い、シードはプレイのたびに同じ値にする（毎回同じ弾幕になり、覚えて攻略でき、検証でも同じ場面を再現できるため）。値の置き場所は、調整値の JSON の形を決めるときに決める
+  - 乱数は自前の生成器を使い、シードはプレイのたびに同じ値にする（毎回同じ弾幕になり、覚えて攻略でき、検証でも同じ場面を再現できるため）。値は `data/params.json` の `random.seed` に置く（T12 で決めた）
 - プラットフォームで分ける `#if` は、`main.cpp` の先頭にある1つの `#if` の中だけに書く（[ADR 0004](decisions/0004-platforms.md)）。`#elif` と `#else` は同じ `#if` の一部に数える
   - 対象のマクロは `PLATFORM_WEB`、`__EMSCRIPTEN__`、`_WIN32`、`_MSC_VER`、`__MINGW32__`、`__APPLE__`、`__linux__`
   - CMakeLists.txt の中の分岐は対象外
