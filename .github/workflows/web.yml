@@ -23,6 +23,12 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # quine_pack のテスト（docs/tasks.md の T15a）。構成に関係しないので Debug のときだけ流す。
+      # コンパイラを使わず、cmake -P だけで動く
+      - name: quine_pack のテスト
+        if: matrix.config == 'Debug'
+        run: cmake -P tools/quine_pack/tests/run_tests.cmake
+
       # README の「emsdk を入れる」と同じ手順。キャッシュは使わない
       - name: emsdk を入れる
         run: |

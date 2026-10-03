@@ -1,0 +1,4 @@
+# quine_pack のテストのサンプルと期待する生成物は、改行を1字も変えずに取り出す。
+# Windows の core.autocrlf=true で CRLF に変わると、expected.cpp との比較が合わなくなり、
+# CR を確かめるサンプル（ok/ の zako_ok）の中身も変わるため
+* -text

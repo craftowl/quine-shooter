@@ -1,0 +1,2 @@
+float f;
+// QUINE-END

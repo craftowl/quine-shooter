@@ -1,0 +1,11 @@
+quine_pack: 12 件の違反
+enemies/source_rules.cpp:4: ASCII 以外の文字がある（ADR 0002 のルール7）
+enemies/source_rules.cpp:5: コメントを書かない（ADR 0002 のルール7）: // comment
+enemies/source_rules.cpp:6: コメントを書かない（ADR 0002 のルール7）: /* block */
+enemies/source_rules.cpp:7: 文字列と文字のリテラル（" と '）を書かない（ADR 0002 のルール5）: '
+enemies/source_rules.cpp:8: 文字列と文字のリテラル（" と '）を書かない（ADR 0002 のルール5）: "
+enemies/source_rules.cpp:9: 文字列と文字のリテラル（" と '）を書かない（ADR 0002 のルール5）: '
+enemies/source_rules.cpp:10: \ を書かない（行の連結を含む。ADR 0002 のルール5）
+enemies/source_rules.cpp:12: \ を書かない（行の連結を含む。ADR 0002 のルール5）
+enemies/source_rules.cpp:14: 制御文字がある（タブ、CR、LF のほかは書かない。ADR 0002 のルール7）
+enemies/source_rules.cpp:6: コメントを書かない（ADR 0002 のルール7）: /*/ TODO 3 */

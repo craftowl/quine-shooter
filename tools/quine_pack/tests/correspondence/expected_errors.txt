@@ -1,0 +1,5 @@
+quine_pack: 4 件の違反
+enemies/dup_b.cpp:1: 同じ敵 ID の範囲がほかにもある（enemies/dup_a.cpp:1。ADR 0002 のルール1）: dup_id
+enemies/no_mask.cpp:1: マスクがない（masks/no_mask.txt）: no_mask
+masks/no_range.txt: 対応する QUINE 範囲がない（敵 ID no_range）
+enemies/dup_b.cpp:2: 認めていない数値（値が 0、1、2、0.5 の10進数だけ。ADR 0002 のルール5）: 3

@@ -1,0 +1,8 @@
+quine_pack: 7 件の違反
+masks/bad_char.txt:2:2: マスクに使えない文字（#、$、. だけ。ADR 0002 のルール2）: x
+masks/ragged.txt:2: 行の長さが1行目と違う（2 文字。1行目は 3 文字。ADR 0002 のルール2）
+masks/no_hash.txt: # が1つもない（ADR 0002 のルール2）
+masks/zako_wide.txt: 大きさの上限を超えている（雑魚は 24列×10行まで。ADR 0002 のルール6）: 25列×1行
+masks/zako_tall.txt: 大きさの上限を超えている（雑魚は 24列×10行まで。ADR 0002 のルール6）: 1列×11行
+masks/boss_wide.txt: 大きさの上限を超えている（ボスは 60列×24行まで。ADR 0002 のルール6）: 61列×1行
+masks/boss_tall.txt: 大きさの上限を超えている（ボスは 60列×24行まで。ADR 0002 のルール6）: 1列×25行

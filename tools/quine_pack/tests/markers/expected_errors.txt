@@ -1,0 +1,11 @@
+quine_pack: 10 件の違反
+enemies/bad_id.cpp:1: 敵 ID に使えない文字がある（英小文字・数字・_ だけ。ADR 0002 のルール1）: Zako-A
+enemies/begin_only.cpp:1: QUINE-END がない: begin_only
+enemies/empty.cpp:1: QUINE 範囲が空: empty_range
+enemies/end_only.cpp:2: QUINE-BEGIN のない QUINE-END
+enemies/extra_words.cpp:1: 敵 ID のあとに余分な語がある: extra words
+enemies/extra_words.cpp:7: QUINE-END のあとに余分な語がある: end_extra
+enemies/nested.cpp:2: QUINE-BEGIN が入れ子になっている（1 行目の範囲が閉じていない）: nested_b
+enemies/no_id.cpp:1: QUINE-BEGIN のあとに敵 ID がない
+enemies/bad_id.cpp:2: 認めていない数値（値が 0、1、2、0.5 の10進数だけ。ADR 0002 のルール5）: 3
+enemies/begin_only.cpp:2: 認めていない数値（値が 0、1、2、0.5 の10進数だけ。ADR 0002 のルール5）: 3

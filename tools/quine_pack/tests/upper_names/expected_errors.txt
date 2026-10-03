@@ -1,0 +1,4 @@
+quine_pack: 3 件の違反
+enemies/upper_names.cpp:3: 認めていない大文字の名前（PI、DEG2RAD、RAD2DEG だけ。ADR 0002 のルール5）: FIXED_DT
+enemies/upper_names.cpp:4: 認めていない大文字の名前（PI、DEG2RAD、RAD2DEG だけ。ADR 0002 のルール5）: RED
+enemies/upper_names.cpp:5: 認めていない大文字の名前（PI、DEG2RAD、RAD2DEG だけ。ADR 0002 のルール5）: A1
