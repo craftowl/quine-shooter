@@ -76,13 +76,15 @@ jobs:
           if ($unexpected.Count -gt 0) { throw "許す一覧にない DLL がある: $($unexpected -join ', ')" }
           Write-Output "頼る DLL はすべて許す一覧の中にある（$($dlls.Count) 個）"
 
-      # 配るのは、Release の exe と assets/（実行ファイルの横に置く。ADR 0006 §6）
+      # 配るのは、Release の exe と assets/ と data/（実行ファイルの横に置く。ADR 0006 §6）。中身を表示して確かめられるようにする
       - name: 配布物をまとめる
         if: matrix.config == 'Release'
         run: |
           New-Item -ItemType Directory -Path dist | Out-Null
           Copy-Item build/windows/Release/2DShooting.exe dist/
           Copy-Item -Recurse build/windows/Release/assets dist/
+          Copy-Item -Recurse build/windows/Release/data dist/
+          Get-ChildItem -Recurse -File dist | ForEach-Object { $_.FullName.Substring((Resolve-Path dist).Path.Length + 1) }
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: matrix.config == 'Release'

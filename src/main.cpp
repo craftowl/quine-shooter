@@ -1,6 +1,8 @@
 #include "raylib.h"
 
 #include <cassert>
+#include <optional>
+#include <string>
 
 #include "core/fixed_step.h"
 #include "core/input.h"
@@ -8,7 +10,9 @@
 #include "core/window.h"
 #include "debug/allocation_counter.h"
 #include "debug/debug_overlay.h"
+#include "debug/params_reloader.h"
 #include "game/game.h"
+#include "game/params.h"
 #include "render/error_screen.h"
 #include "render/text_renderer.h"
 
@@ -58,6 +62,8 @@ void run_main_loop(void (*frame_func)()) {
 #ifdef DEBUG
 // Web 版では、OS のライブラリの確保が operator new を通らないので、判定しない（ADR 0007）
 constexpr bool (*OS_ALLOCATION_FILTER)() = nullptr;
+// Web 版のファイルは .data に埋め込まれ、実行中に変わらないので、ホットリロードをしない（tasks.md の T12）
+constexpr bool HOT_RELOAD_AVAILABLE = false;
 #endif
 
 }  // namespace
@@ -214,6 +220,8 @@ bool is_os_allocation() {
 }
 
 constexpr bool (*OS_ALLOCATION_FILTER)() = is_os_allocation;
+// 実行ファイルの横の data/ はリポジトリへのリンクなので、編集したファイルを読み直せる（tasks.md の T12）
+constexpr bool HOT_RELOAD_AVAILABLE = true;
 #endif
 
 }  // namespace
@@ -237,6 +245,8 @@ void run_main_loop(void (*frame_func)()) {
 #ifdef DEBUG
 // Windows で OS のライブラリの確保が operator new を通るかは、確かめていない（T10）。いまは判定しない
 constexpr bool (*OS_ALLOCATION_FILTER)() = nullptr;
+// 実行ファイルの横の data/ はリポジトリへのリンク（作れなければコピー）なので、読み直せる（tasks.md の T12）
+constexpr bool HOT_RELOAD_AVAILABLE = true;
 #endif
 
 }  // namespace
@@ -247,12 +257,45 @@ namespace stg {
 namespace {
 
 constexpr const char* FONT_FILE = "assets/fonts/JetBrainsMono-Regular.ttf";  // 実行ファイルの場所から（ADR 0006）
+constexpr const char* PARAMS_FILE = "data/params.json";                    // 実行ファイルの場所から（ADR 0006）
 
 float screen_scale = 1.0f;  // 480×640 の 1px が実際の画面の何ピクセルか。起動時に決める
 FixedStep fixed_step;
 render::TextRenderer text_renderer;
 LoadErrors load_errors;
+Params params;  // 調整値。起動時に読み、Debug と RelWithDebInfo ではホットリロードで書き換わる
 Game game;
+#ifdef DEBUG
+debug::ParamsReloader params_reloader;
+#endif
+
+// 調整値を読む（ADR 0006 §6、tasks.md の T12）。起動時に1回だけ読み、ホットリロードにも同じテキストを渡す。
+// 読めないか解釈に失敗したら、パスと理由を errors に足す
+[[nodiscard]] bool load_params_file(LoadErrors& errors) {
+    const std::string full_path = std::string(GetApplicationDirectory()) + PARAMS_FILE;
+    char* text = LoadFileText(full_path.c_str());
+    if (text == nullptr) {
+        TraceLog(LOG_ERROR, "PARAMS: Failed to load %s: File not found or empty", full_path.c_str());
+        errors.add(PARAMS_FILE, "File not found or empty");
+        return false;
+    }
+    std::string error;
+    const std::optional<Params> loaded = parse_params(text, error);
+    if (!loaded.has_value()) {
+        TraceLog(LOG_ERROR, "PARAMS: Failed to load %s", full_path.c_str());
+        errors.add(PARAMS_FILE, error.c_str());
+        UnloadFileText(text);
+        return false;
+    }
+    params = *loaded;
+#ifdef DEBUG
+    if constexpr (HOT_RELOAD_AVAILABLE) {
+        params_reloader.start(full_path.c_str(), text);
+    }
+#endif
+    UnloadFileText(text);
+    return true;
+}
 
 void render() {
     BeginDrawing();
@@ -261,7 +304,11 @@ void render() {
     game.draw(text_renderer);
     text_renderer.end();
 #ifdef DEBUG
-    debug::draw_overlay();
+    if constexpr (HOT_RELOAD_AVAILABLE) {
+        debug::draw_overlay(params_reloader.last_status());
+    } else {
+        debug::draw_overlay("");
+    }
 #endif
     EndDrawing();
 }
@@ -270,11 +317,17 @@ void frame() {
 #ifdef DEBUG
     debug::begin_frame_allocations();
 #endif
+#ifdef DEBUG
+    // 調整値のホットリロード。update() の外、フレームの最初に行う（tasks.md の T12）
+    if constexpr (HOT_RELOAD_AVAILABLE) {
+        [[maybe_unused]] const debug::ReloadResult reload_result = params_reloader.poll(params);
+    }
+#endif
     // 入力はフレームの最初に1回読み、このフレームのすべての update() に渡す（design.md §1）
     const InputState input = read_input();
     const int steps = fixed_step.advance(GetFrameTime());
     for (int i = 0; i < steps; ++i) {
-        game.update(input, FIXED_DT);
+        game.update(input, params, FIXED_DT);
     }
     render();
 }
@@ -292,6 +345,8 @@ void error_frame() {
 
 int main() {
 #ifdef DEBUG
+    // ログの段階を決めておく（ホットリロードは、一時的に上げた段階をこの値に戻す。tasks.md の T12）
+    SetTraceLogLevel(stg::debug::GAME_LOG_LEVEL);
     // OS のライブラリの確保を、ゲームの確保と区別する（ADR 0007）
     stg::debug::set_os_allocation_filter(stg::OS_ALLOCATION_FILTER);
 #endif
@@ -305,11 +360,13 @@ int main() {
     SetExitKey(KEY_NULL);
 
     // 起動時に読むファイル。1つ読めなくても残りを読み続け、読めなかったものをまとめてエラー画面に出す（ADR 0006 §6）。
-    // params.json とウェーブ定義は、T12 と T20 でここに足す
-    const bool loaded = stg::text_renderer.load(stg::FONT_FILE, scale, stg::load_errors);
+    // ウェーブ定義は、T20 でここに足す
+    const bool font_loaded = stg::text_renderer.load(stg::FONT_FILE, scale, stg::load_errors);
+    const bool params_loaded = stg::load_params_file(stg::load_errors);
+    const bool loaded = font_loaded && params_loaded;
 
     if (loaded) {
-        stg::game.start(stg::text_renderer);
+        stg::game.start(stg::text_renderer, stg::params);
 #ifdef DEBUG
         stg::debug::init_overlay();
         // ここで起動が終わる。これより後は、データの読み込みの外で確保しない（ADR 0007）

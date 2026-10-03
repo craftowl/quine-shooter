@@ -41,7 +41,9 @@ cmake --build build/release
 
 `-DCMAKE_BUILD_TYPE` を省くと Debug になる。
 
-ビルドすると、`assets/`（フォントなど）が実行ファイルの横にコピーされる。ゲームは実行ファイルの場所を基準にファイルを開くので、実行ファイルを別の場所へ移すときは、`assets/` も一緒に移す。
+ビルドすると、`assets/`（フォントなど）と `data/`（調整値の `params.json` など）が実行ファイルの横に置かれる。ゲームは実行ファイルの場所を基準にファイルを開くので、実行ファイルを別の場所へ移すときは、`assets/` と `data/` も一緒に移す。
+
+Debug と RelWithDebInfo では、実行ファイルの横の `data/` はリポジトリの `data/` へのシンボリックリンクになる。ゲームを動かしたまま `data/params.json` を書き換えて保存すると、0.5 秒ほどで読み直す（ホットリロード）。Release では `data/` はコピーで、ホットリロードはしない。
 
 ## ビルド（Windows 版）
 
@@ -74,7 +76,7 @@ cmake --build build/windows --config RelWithDebInfo
 cmake --build build/windows --config Release
 ```
 
-実行ファイルは `build/windows/<構成>/2DShooting.exe` にでき、その横に `assets/` がコピーされる。C++ のランタイムは静的にリンクするので、開発ツールの入っていない Windows でも、`2DShooting.exe` と `assets/` を一緒に置けば起動できる。Release だけは、起動したときにコンソールのウィンドウを出さない。
+実行ファイルは `build/windows/<構成>/2DShooting.exe` にでき、その横に `assets/` と `data/` が置かれる。C++ のランタイムは静的にリンクするので、開発ツールの入っていない Windows でも、`2DShooting.exe` と `assets/` と `data/` を一緒に置けば起動できる。Debug と RelWithDebInfo の `data/` は、シンボリックリンクを作れればリポジトリの `data/` へのリンクになる（開発者モードでないと作れない。そのときはコピーになり、設定の段階で警告が出る）。Release だけは、起動したときにコンソールのウィンドウを出さない。
 
 ## ビルド（Web 版）
 
@@ -111,7 +113,7 @@ cmake --build build/web-debug
 emrun build/web-debug/2DShooting.html
 ```
 
-`assets/` は `2DShooting.data` にまとめられる。サーバーに置くときは、`2DShooting.html`、`.js`、`.wasm`、`.data` を同じ場所に置く。
+`assets/` と `data/` は `2DShooting.data` にまとめられる（Web 版ではホットリロードをしない）。サーバーに置くときは、`2DShooting.html`、`.js`、`.wasm`、`.data` を同じ場所に置く。
 
 `2DShooting.html` をファイルとして直接開くと、ブラウザが wasm の読み込みを止めることが多い。`emrun` のように、サーバーから開く。
 

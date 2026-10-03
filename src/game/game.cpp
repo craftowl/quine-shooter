@@ -1,5 +1,7 @@
 #include "game/game.h"
 
+#include <algorithm>
+
 #include "core/window.h"
 
 namespace stg {
@@ -38,13 +40,16 @@ void draw_char_centered(const render::TextRenderer& text, char character, Vector
 
 }  // namespace
 
-void Game::start(const render::TextRenderer& text) {
-    player_ = Player{};
+void Game::start(const render::TextRenderer& text, const Params& params) {
     player_movable_area_ = compute_player_movable_area(text);
+    // 開始位置が動ける範囲の外でも（画面の端など）、最初のフレームから範囲の中に描くように収めておく
+    const Rectangle& area = player_movable_area_;
+    const Vector2 start = params.player.start_position;
+    player_ = Player{{std::clamp(start.x, area.x, area.x + area.width), std::clamp(start.y, area.y, area.y + area.height)}};
 }
 
-void Game::update(const InputState& input, float dt) {
-    update_player(player_, input, player_movable_area_, dt);
+void Game::update(const InputState& input, const Params& params, float dt) {
+    update_player(player_, input, params.player, player_movable_area_, dt);
 }
 
 void Game::draw(const render::TextRenderer& text) const {

@@ -655,7 +655,7 @@ T12 は、行数の見込み（約450行）が AGENT.md の「500行を超える
 - params.json に入れる値
   - **決定（2026-10-02）**：今使う値だけ（自機の通常の速さ、低速の速さ、開始位置）。ほかの値（design.md §5 の一覧）は、使うタスクで足す。T12 では JSON の形の決まりを決める
 - JSON の形
-  - **決定（2026-10-02）**：種類ごとに入れ子にする（design.md §5 の一覧の分け方：`player`、`shot`、`item`、`progress`、`enemies`、`boss`、`audio`、`random`）。キーは snake_case。座標は `{"x": …, "y": …}`。JSON にはコメントを書けないので、各キーの単位と範囲は design.md の表に書く
+  - **決定（2026-10-02）**：種類ごとに入れ子にする（design.md §5 の一覧の分け方：`player`、`shot`、`item`、`progress`、`enemies`、`boss`、`audio`、`random`）。キーは snake_case。座標は `{"x": …, "y": …}`。コメントは使わない（標準の JSON にはコメントがない。nlohmann/json は `ignore_comments` で読み飛ばせるが、標準から外れ、エディタなどで誤りと扱われるため。2026-10-03 に人が決めた）。各キーの単位と範囲は design.md の表に書く
 - 乱数のシードの置き場所（AGENT.md の「構造」）
   - **決定（2026-10-02）**：`params.json` の `random.seed`。キーは T13 で足す。ホットリロードで変えても、効くのは次のプレイの開始から
 - 中身の確かめ方

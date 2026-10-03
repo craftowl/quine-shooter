@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <cstddef>
+#include <cstring>
 
 #include "raylib.h"
 
@@ -20,6 +22,53 @@ constexpr int REASON_INDENT = 24;
 
 constexpr const char* TITLE = "Failed to start the game.";
 constexpr const char* LIST_HEADING = "The following files could not be loaded:";
+
+// 1行に写せる文字数の上限。これより長い行は、ここで切って次の行に送る
+constexpr std::size_t MAX_LINE_LENGTH = 255;
+
+// text の先頭 length 文字を描いたときの幅（px）。毎フレーム呼ぶので確保しない（ADR 0007）
+int measure_prefix(const char* text, std::size_t length, int font_size) {
+    char line[MAX_LINE_LENGTH + 1];
+    assert(length <= MAX_LINE_LENGTH);
+    std::memcpy(line, text, length);
+    line[length] = '\0';
+    return MeasureText(line, font_size);
+}
+
+// text を max_width（px）に収まるように折り返して描き、使った行数を返す。
+// 空白の位置で折り返し、空白のない長い語は、収まるところで切る（tasks.md の T12b）
+int draw_wrapped(const char* text, int x, int y, int max_width, int font_size, int line_height) {
+    int lines = 0;
+    const char* rest = text;
+    while (*rest != '\0') {
+        const std::size_t total = std::min(std::strlen(rest), MAX_LINE_LENGTH);
+        // 空白の手前で切って収まる、いちばん長い長さを探す
+        std::size_t fit = 0;
+        for (std::size_t end = 1; end <= total; ++end) {
+            const bool at_break = end == total || rest[end] == ' ';
+            if (at_break && measure_prefix(rest, end, font_size) <= max_width) {
+                fit = end;
+            }
+        }
+        // 最初の語だけで収まらないときは、文字の単位で切る（少なくとも1文字は描く）
+        if (fit == 0) {
+            fit = 1;
+            while (fit < total && measure_prefix(rest, fit + 1, font_size) <= max_width) {
+                ++fit;
+            }
+        }
+        char line[MAX_LINE_LENGTH + 1];
+        std::memcpy(line, rest, fit);
+        line[fit] = '\0';
+        DrawText(line, x, y + line_height * lines, font_size, RAYWHITE);
+        ++lines;
+        rest += fit;
+        while (*rest == ' ') {
+            ++rest;
+        }
+    }
+    return lines;
+}
 
 }  // namespace
 
@@ -49,8 +98,10 @@ void draw_error_screen(const LoadErrors& errors, const char* quit_hint, float sc
     for (const LoadError& error : errors.entries()) {
         DrawText(error.path.c_str(), x + PATH_INDENT * unit, y, font_size, RAYWHITE);
         next_line(1);
-        DrawText(error.reason.c_str(), x + REASON_INDENT * unit, y, font_size, RAYWHITE);
-        next_line(1);
+        // 理由は長くなりうるので、画面の右の余白の手前で折り返す
+        const int reason_x = x + REASON_INDENT * unit;
+        const int max_width = GetRenderWidth() - reason_x - MARGIN * unit;
+        next_line(draw_wrapped(error.reason.c_str(), reason_x, y, max_width, font_size, LINE_HEIGHT * unit));
     }
     next_line(1);
     DrawText(quit_hint, x, y, font_size, RAYWHITE);

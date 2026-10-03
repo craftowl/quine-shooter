@@ -3,6 +3,7 @@
 #include "raylib.h"
 
 #include "core/input.h"
+#include "game/params.h"
 #include "game/player.h"
 #include "render/text_renderer.h"
 
@@ -12,8 +13,8 @@ namespace stg {
 class Game {
 public:
     // 文字の大きさから自機の動ける範囲を決め、開始位置に置く。text は読み込み済み
-    void start(const render::TextRenderer& text);
-    void update(const InputState& input, float dt);
+    void start(const render::TextRenderer& text, const Params& params);
+    void update(const InputState& input, const Params& params, float dt);
     // text.begin() と text.end() の間で呼ぶ（begin と end は main.cpp が呼ぶ。どちらも const ではないため）
     void draw(const render::TextRenderer& text) const;
 
