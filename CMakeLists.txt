@@ -80,6 +80,7 @@ add_executable(2DShooting
     src/core/window.cpp
     src/debug/allocation_counter.cpp
     src/debug/debug_overlay.cpp
+    src/debug/enemy_text_list.cpp
     src/debug/params_reloader.cpp
     src/game/game.cpp
     src/game/params.cpp
@@ -87,6 +88,32 @@ add_executable(2DShooting
     src/render/error_screen.cpp
     src/render/text_renderer.cpp
 )
+
+# 敵（ADR 0002、design.md §4、tasks.md の T15b）。src/enemies/ のソースは、足しても CMake の設定をやり直さずに
+# ビルドに入るように、一覧を取り直して足す。quine_pack が、ソースとマスクから、敵の体のテキストを埋め込む
+# .cpp を生成する（入力が変わったときだけ動く）。quine_pack には絶対パスを渡す
+file(GLOB_RECURSE ENEMY_SOURCES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/src/enemies/*.h ${CMAKE_SOURCE_DIR}/src/enemies/*.cpp)
+file(GLOB ENEMY_MASKS CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/data/masks/*.txt)
+set(QUINE_PACK ${CMAKE_SOURCE_DIR}/tools/quine_pack/quine_pack.cmake)
+set(ENEMY_TEXT_DATA ${CMAKE_BINARY_DIR}/generated/enemy_text_data.cpp)
+# 入力のファイルの一覧を書き出し、生成の依存に入れる。ファイルを消したときも生成し直すため
+# （残ったファイルは生成物より古いので、一覧がないと消した敵のテキストが残る）。中身が変わったときだけ書き換わる
+string(REPLACE ";" "\n" ENEMY_INPUT_LIST "${ENEMY_SOURCES};${ENEMY_MASKS}")
+set(ENEMY_INPUTS ${CMAKE_BINARY_DIR}/generated/enemy_inputs.txt)
+file(CONFIGURE OUTPUT ${ENEMY_INPUTS} CONTENT "${ENEMY_INPUT_LIST}\n")
+add_custom_command(
+    OUTPUT ${ENEMY_TEXT_DATA}
+    COMMAND ${CMAKE_COMMAND}
+        -DENEMY_DIR=${CMAKE_SOURCE_DIR}/src/enemies
+        -DMASK_DIR=${CMAKE_SOURCE_DIR}/data/masks
+        -DOUTPUT=${ENEMY_TEXT_DATA}
+        -DBASE_DIR=${CMAKE_SOURCE_DIR}
+        -P ${QUINE_PACK}
+    DEPENDS ${ENEMY_SOURCES} ${ENEMY_MASKS} ${ENEMY_INPUTS} ${QUINE_PACK}
+    COMMENT "quine_pack で敵の体のテキストを生成する"
+    VERBATIM
+)
+target_sources(2DShooting PRIVATE ${ENEMY_SOURCES} ${ENEMY_TEXT_DATA})
 
 target_compile_features(2DShooting PRIVATE cxx_std_20)
 set_target_properties(2DShooting PROPERTIES CXX_EXTENSIONS OFF)

@@ -7,6 +7,7 @@
 #include "rlImGui.h"
 
 #include "debug/allocation_counter.h"
+#include "debug/enemy_text_list.h"
 
 namespace stg::debug {
 
@@ -37,6 +38,8 @@ void draw_overlay(const char* reload_status) {
         ImGui::PopTextWrapPos();
     }
     ImGui::End();
+    // 埋め込んだ敵の体のテキスト（tasks.md の T15b）
+    draw_enemy_text_list();
     rlImGuiEnd();
 }
 

@@ -6,6 +6,9 @@
 #   1. プラットフォームを判定するマクロが、main.cpp の1つの #if（#elif と #else を含む）の外にある
 #   2. 使わない関数（ADR 0006 の表のうち、確かめ方が「スクリプト」の行）を使っている
 #   3. 入力・時間・乱数の関数（AGENT.md の「構造」の一覧）を、main.cpp、src/core/、src/debug/ の外で使っている
+#   4. QUINE マーカー（行の先頭の // QUINE-BEGIN と // QUINE-END）を、src/enemies/ の外に書いている（tasks.md の T15b）。
+#      マーカーはコメントなので、この検査だけは、コメントを取り除く前の行で行う。
+#      マーカーと認める行は、quine_pack（tools/quine_pack/quine_pack.cmake）と同じ
 # 500行を超えたファイルには警告だけを出す（wc -l と同じく、改行の数で数える）。
 # コメントと、文字列と文字のリテラルの中身は、検査の前に取り除く（生文字列 R"(...)" は扱わない）。
 
@@ -16,6 +19,9 @@ if(NOT DEFINED PROJECT_ROOT)
 endif()
 
 set(MAX_LINES 500)
+
+# QUINE マーカーと認める行（quine_pack の MARKER_REGEX と同じ）
+set(QUINE_MARKER_REGEX "^[ \t]*//[ \t]*QUINE-(BEGIN|END)([^A-Za-z0-9_-]|$)")
 
 # 識別子の一部でないことを表す、前後の文字
 set(B "(^|[^A-Za-z0-9_])")
@@ -143,6 +149,22 @@ list(SORT source_files)
 foreach(path IN LISTS source_files)
     file(RELATIVE_PATH rel "${PROJECT_ROOT}" "${path}")
     file(READ "${path}" content)
+
+    # 4. src/enemies/ の外の QUINE マーカー。コメントを取り除く前の行で探す
+    if(NOT rel MATCHES "^src/enemies/")
+        set(raw "${content}")
+        string(REPLACE ";" " " raw "${raw}")
+        string(REPLACE "[" " " raw "${raw}")
+        string(REPLACE "]" " " raw "${raw}")
+        string(REPLACE "\n" ";" raw_lines "${raw}")
+        set(raw_line_no 0)
+        foreach(raw_line IN LISTS raw_lines)
+            math(EXPR raw_line_no "${raw_line_no} + 1")
+            if(raw_line MATCHES "${QUINE_MARKER_REGEX}")
+                add_violation("${rel}" ${raw_line_no} "QUINE マーカーは src/enemies/ の中にだけ書く（AGENT.md の「Quine の敵」）" "${raw_line}")
+            endif()
+        endforeach()
+    endif()
 
     # 行数（wc -l と同じく、改行の数）
     string(REGEX REPLACE "[^\n]" "" all_newlines "${content}")
