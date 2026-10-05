@@ -1,0 +1,4 @@
+# ボスの Quine は、行末の空白も改行も1字も変えない（ADR 0009）。エディタが行末の空白を消すと、自分を出力しなくなる
+[*]
+end_of_line = lf
+trim_trailing_whitespace = false

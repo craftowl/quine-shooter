@@ -17,12 +17,3 @@ float zako_wide;
 // QUINE-BEGIN zako_tall
 float zako_tall;
 // QUINE-END
-
-// QUINE-BEGIN boss_wide
-float boss_wide;
-// QUINE-END
-
-// QUINE-BEGIN boss_tall
-float boss_tall;
-// QUINE-END
-

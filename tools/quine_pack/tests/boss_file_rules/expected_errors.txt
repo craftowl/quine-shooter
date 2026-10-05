@@ -1,0 +1,15 @@
+quine_pack: 14 件の違反
+quines/boss_bom.cpp:1: ファイルの先頭に BOM がある（BOM なしの UTF-8 で保存する）
+quines/boss_control.cpp:2: 制御文字がある（ADR 0009）
+quines/boss_cr.cpp:1: CR がある（改行は LF だけ。ADR 0009）
+quines/boss_cr.cpp:2: CR がある（改行は LF だけ。ADR 0009）
+quines/boss_cr.cpp:3: CR がある（改行は LF だけ。ADR 0009）
+quines/boss_dot.cpp:1:1: . のマスが空白でない（ADR 0009）
+quines/boss_hash_dollar.cpp:2:4: # のマスが空白か $ になっている（# には、空白と $ のほかの表示できる ASCII を置く。ADR 0009）
+quines/boss_hash_space.cpp:2:4: # のマスが空白か $ になっている（# には、空白と $ のほかの表示できる ASCII を置く。ADR 0009）
+quines/boss_no_lf.cpp:3: 最後の行に LF がない（ADR 0009）
+quines/boss_non_ascii.cpp:2: ASCII 以外の文字がある（ADR 0009）
+quines/boss_rows.cpp: 行の数がマスクと違う（2 行。マスクは 3 行。ADR 0009）
+quines/boss_tab.cpp:2: タブがある（ADR 0009）
+quines/boss_trailing.cpp:1: 行の長さがマスクと違う（4 文字。マスクは 5 文字。行末の空白が消えていないか。ADR 0009）
+quines/boss_weak.cpp:2:2: $ のマスが $ でない（ADR 0009）

@@ -1,12 +1,13 @@
-# quine_pack のテスト（tasks.md の T15a）
+# quine_pack のテスト（tasks.md の T15a と T15c1）
 #
 # 使い方: cmake [-DWORK_DIR=<作業用のディレクトリ>] -P tools/quine_pack/tests/run_tests.cmake
 #
-# このディレクトリの下のディレクトリを1つずつ、quine_pack に渡して確かめる（enemies/ と masks/ が入力）。
+# このディレクトリの下のディレクトリを1つずつ、quine_pack に渡して確かめる（enemies/、masks/、quines/ が入力。
+# ないものには、WORK_DIR の空のディレクトリ empty/ を渡す。git は空のディレクトリを記録できないため）。
 #   expected_errors.txt があるもの：quine_pack が失敗し、各行の文がメッセージに含まれ、生成物を書かないこと
 #   ないもの：quine_pack が成功すること。expected.cpp があれば、生成物が1字も違わないこと
 # WORK_DIR を省くと、リポジトリの build/quine_pack_tests に生成物を書く（.gitignore の対象）。
-# WORK_DIR の中で消すのは、テストごとの生成物（<テスト名>.cpp）だけ。ほかのファイルには触らない。
+# WORK_DIR の中で消すのは、テストごとの生成物（<テスト名>.cpp）だけ。ほかのファイルには触らない（empty/ は作るだけ）。
 # 1つでも合わなければ失敗する。
 
 cmake_minimum_required(VERSION 3.25)
@@ -16,7 +17,8 @@ get_filename_component(QUINE_PACK "${TESTS_DIR}/../quine_pack.cmake" ABSOLUTE)
 if(NOT DEFINED WORK_DIR)
     get_filename_component(WORK_DIR "${TESTS_DIR}/../../../build/quine_pack_tests" ABSOLUTE)
 endif()
-file(MAKE_DIRECTORY "${WORK_DIR}")
+set(EMPTY_DIR "${WORK_DIR}/empty")
+file(MAKE_DIRECTORY "${WORK_DIR}" "${EMPTY_DIR}")
 
 file(GLOB entries LIST_DIRECTORIES true "${TESTS_DIR}/*")
 list(SORT entries)
@@ -26,8 +28,17 @@ set(failure_count 0)
 set(case_count 0)
 
 foreach(case_dir IN LISTS entries)
-    # enemies/ か masks/ を持つディレクトリだけをテストとみなす（ほかのツールが作ったディレクトリを数えない）
-    if(NOT IS_DIRECTORY "${case_dir}/enemies" AND NOT IS_DIRECTORY "${case_dir}/masks")
+    # enemies/、masks/、quines/ のどれかを持つディレクトリだけをテストとみなす（ほかのツールが作ったディレクトリを数えない）
+    set(inputs "")
+    foreach(sub enemies masks quines)
+        if(IS_DIRECTORY "${case_dir}/${sub}")
+            set(${sub}_dir "${case_dir}/${sub}")
+            string(APPEND inputs "${sub}")
+        else()
+            set(${sub}_dir "${EMPTY_DIR}")
+        endif()
+    endforeach()
+    if(inputs STREQUAL "")
         continue()
     endif()
     get_filename_component(name "${case_dir}" NAME)
@@ -37,8 +48,9 @@ foreach(case_dir IN LISTS entries)
     file(REMOVE "${output}")
     execute_process(
         COMMAND "${CMAKE_COMMAND}"
-            "-DENEMY_DIR=${case_dir}/enemies"
-            "-DMASK_DIR=${case_dir}/masks"
+            "-DENEMY_DIR=${enemies_dir}"
+            "-DMASK_DIR=${masks_dir}"
+            "-DQUINE_DIR=${quines_dir}"
             "-DOUTPUT=${output}"
             "-DBASE_DIR=${case_dir}"
             -P "${QUINE_PACK}"

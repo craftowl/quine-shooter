@@ -1,0 +1,5 @@
+quine_pack: 4 件の違反
+enemies/boss_range.cpp:2: ボスは QUINE 範囲を使わない（体のテキストは quines/boss_range.cpp から取る。ADR 0009）: boss_range
+quines/zako_quine.cpp: Quine のファイルを使えるのはボス（boss_ で始まる ID の敵）だけ（雑魚は QUINE 範囲を使う。ADR 0009）
+masks/boss_no_quine.txt: Quine のファイルがない（quines/boss_no_quine.cpp。ADR 0009）
+quines/boss_no_mask.cpp: マスクがない（masks/boss_no_mask.txt）: boss_no_mask

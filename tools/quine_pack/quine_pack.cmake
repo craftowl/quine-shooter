@@ -1,25 +1,28 @@
 # quine_pack：QUINE 範囲を切り出して検査し、マスクに流し込んで、実行ファイルに埋め込む .cpp を生成する
-# （ADR 0002、design.md §4、tasks.md の T15a）
+# （ADR 0002、ADR 0009、design.md §4、tasks.md の T15a と T15c1）
 #
-# 使い方: cmake -DENEMY_DIR=<敵のソース> -DMASK_DIR=<マスク> -DOUTPUT=<生成する .cpp>
+# 使い方: cmake -DENEMY_DIR=<敵のソース> -DMASK_DIR=<マスク> -DQUINE_DIR=<ボスの Quine> -DOUTPUT=<生成する .cpp>
 #               [-DBASE_DIR=<メッセージに出すパスの基準>] -P quine_pack.cmake
 #
-# ENEMY_DIR の .h と .cpp（サブディレクトリを含む）から QUINE 範囲を切り出し、MASK_DIR の <敵ID>.txt と対応させる。
-# 違反があれば、ファイル名と行番号（マスクは行と列）と理由をすべて出して失敗し、OUTPUT は書かない。
+# 雑魚：ENEMY_DIR の .h と .cpp（サブディレクトリを含む）から QUINE 範囲を切り出し、MASK_DIR の <敵ID>.txt と対応させる。
+# ボス（boss_ で始まる ID）：QUINE 範囲を使わず、QUINE_DIR の <敵ID>.cpp（生成した Quine。.cpp だけを読む）を、
+# MASK_DIR の <敵ID>.txt と1文字もずれていないことを確かめて、そのまま体のテキストにする（boss_quine.cmake）。
+# 違反があれば、ファイル名と行番号（マスクと Quine のファイルは行と列）と理由をすべて出して失敗し、OUTPUT は書かない。
 # BASE_DIR を省くと、ENEMY_DIR の親を基準にする。
 #
 # CMake のリストは ; で割れるので、ソースとマスクの中身は list() や foreach() に渡さず、いつも引用符つきの変数で扱う。
 # 違反は関数の入れ子の中からも足せるように、グローバルなプロパティに貯める。
 
 cmake_minimum_required(VERSION 3.25)
+include("${CMAKE_CURRENT_LIST_DIR}/boss_quine.cmake")
 
-foreach(arg ENEMY_DIR MASK_DIR OUTPUT)
+foreach(arg ENEMY_DIR MASK_DIR QUINE_DIR OUTPUT)
     if(NOT DEFINED ${arg})
         message(FATAL_ERROR "${arg} を指定する")
     endif()
 endforeach()
-# パスの書き間違いで、敵が1体もないまま成功しないように、どちらのディレクトリもなければ止める
-foreach(arg ENEMY_DIR MASK_DIR)
+# パスの書き間違いで、敵が1体もないまま成功しないように、どのディレクトリもなければ止める
+foreach(arg ENEMY_DIR MASK_DIR QUINE_DIR)
     if(NOT IS_DIRECTORY "${${arg}}")
         message(FATAL_ERROR "${arg} のディレクトリがない: ${${arg}}")
     endif()
@@ -27,6 +30,8 @@ endforeach()
 if(NOT DEFINED BASE_DIR)
     get_filename_component(BASE_DIR "${ENEMY_DIR}" DIRECTORY)
 endif()
+file(RELATIVE_PATH mask_rel_dir "${BASE_DIR}" "${MASK_DIR}")
+file(RELATIVE_PATH quine_rel_dir "${BASE_DIR}" "${QUINE_DIR}")
 
 # マスクの大きさの上限（ADR 0002 のルール6）
 set(ZAKO_MAX_COLUMNS 24)
@@ -235,6 +240,10 @@ foreach(path IN LISTS enemy_files)
                     add_violation("${rel}:${line_no}" "敵 ID のあとに余分な語がある" "${after}")
                 elseif(NOT after MATCHES "${ID_REGEX}")
                     add_violation("${rel}:${line_no}" "敵 ID に使えない文字がある（英小文字・数字・_ だけ。ADR 0002 のルール1）" "${after}")
+                elseif(after MATCHES "^boss_")
+                    # ボスの挙動のコードには雑魚の規則が当てはまらないので、中身は検査せず、登録もしない
+                    add_violation("${rel}:${line_no}" "ボスは QUINE 範囲を使わない（体のテキストは ${quine_rel_dir}/${after}.cpp から取る。ADR 0009）" "${after}")
+                    set(range_id "${after}")
                 else()
                     set(range_id "${after}")
                 endif()
@@ -247,13 +256,17 @@ foreach(path IN LISTS enemy_files)
                 else()
                     # 違反をまとめて出すため、ID が正しくない範囲や、同じ ID の2つ目の範囲の中身も検査する
                     math(EXPR first_line "${range_begin} + 1")
-                    check_range_text("${rel}" ${first_line} "${range_text}")
-                    if(NOT range_id STREQUAL "")
-                        register_range("${range_id}" "${rel}" ${range_begin} "${range_text}")
+                    if(NOT range_id MATCHES "^boss_")
+                        check_range_text("${rel}" ${first_line} "${range_text}")
+                        if(NOT range_id STREQUAL "")
+                            register_range("${range_id}" "${rel}" ${range_begin} "${range_text}")
+                        endif()
                     endif()
                     set(in_range FALSE)
                 endif()
             endif()
+        elseif(in_range AND range_id MATCHES "^boss_")
+            continue()
         elseif(in_range)
             string(HEX "${line}" line_hex)
             if(line_hex MATCHES "^(..)*[89a-f]")
@@ -268,14 +281,15 @@ foreach(path IN LISTS enemy_files)
     endwhile()
     if(in_range)
         add_violation("${rel}:${range_begin}" "QUINE-END がない" "${range_id}")
-        math(EXPR first_line "${range_begin} + 1")
-        check_range_text("${rel}" ${first_line} "${range_text}")
+        if(NOT range_id MATCHES "^boss_")
+            math(EXPR first_line "${range_begin} + 1")
+            check_range_text("${rel}" ${first_line} "${range_text}")
+        endif()
     endif()
 endforeach()
 
 # ---- 2. マスクを読んで検査する ----
 
-file(RELATIVE_PATH mask_rel_dir "${BASE_DIR}" "${MASK_DIR}")
 file(GLOB mask_files LIST_DIRECTORIES false "${MASK_DIR}/*.txt")
 list(SORT mask_files)
 set(mask_ids "")
@@ -350,8 +364,9 @@ foreach(path IN LISTS mask_files)
     set(mask_${id}_cells "${cells}")
 endforeach()
 
-# ---- 3. 範囲とマスクの対応を確かめる（ADR 0002 のルール1） ----
+# ---- 3. ボスの Quine のファイルを読み、範囲・Quine のファイルとマスクの対応を確かめる（ADR 0002 のルール1、ADR 0009） ----
 
+read_quine_files(quine_ids)
 get_property(range_ids GLOBAL PROPERTY QP_RANGE_IDS)
 list(SORT range_ids)
 get_property(has_nul GLOBAL PROPERTY QP_HAS_NUL)
@@ -364,11 +379,12 @@ if(NOT has_nul)
         endif()
     endforeach()
     foreach(id IN LISTS mask_ids)
-        # QUINE-BEGIN に書いたが、範囲に問題があって登録しなかった敵は、その違反がもう出ているので除く
-        if(NOT id IN_LIST range_ids AND NOT id IN_LIST named_ids)
+        # ボスのマスクは下の check_quine_correspondence で見る。範囲に問題があって登録しなかった敵は、違反がもう出ているので除く
+        if(NOT id MATCHES "^boss_" AND NOT id IN_LIST range_ids AND NOT id IN_LIST named_ids)
             add_violation("${mask_rel_dir}/${id}.txt" "対応する QUINE 範囲がない（敵 ID ${id}）" "")
         endif()
     endforeach()
+    check_quine_correspondence("${mask_ids}" "${quine_ids}")
 endif()
 
 get_property(violation_count GLOBAL PROPERTY QP_VIOLATION_COUNT)
@@ -377,7 +393,7 @@ if(violation_count GREATER 0)
     message(FATAL_ERROR "quine_pack: ${violation_count} 件の違反\n${violations}")
 endif()
 
-# ---- 4. マスクの # に詰めて、生成する .cpp を組み立てる（ADR 0002 のルール3） ----
+# ---- 4. マスクの # に詰めて（ボスは Quine のファイルのまま）、生成する .cpp を組み立てる（ADR 0002 のルール3） ----
 
 # C++ の文字列リテラルの中身にする（\ と " をエスケープする）
 function(escape_cpp text out_var)
@@ -412,6 +428,20 @@ function(fill_mask code cells out_var)
     set(${out_var} "${filled}" PARENT_SCOPE)
 endfunction()
 
+# 流し込んだ結果の説明（ビルドのログに出す）
+function(fill_note code hashes out_var)
+    string(LENGTH "${code}" code_len)
+    if(code_len GREATER hashes)
+        math(EXPR cut "${code_len} - ${hashes}")
+        set(note "${cut} 文字を切り捨てた")
+    elseif(code_len LESS hashes)
+        set(note "繰り返して詰めた")
+    else()
+        set(note "ちょうど詰めた")
+    endif()
+    set(${out_var} "# ${hashes} マス、コード ${code_len} 文字。${note}" PARENT_SCOPE)
+endfunction()
+
 # columns 文字ごとに1行の文字列リテラルにして並べる（最後の行のあとに suffix を付ける）
 function(rows_as_literals text columns rows suffix out_var)
     set(literals "")
@@ -432,34 +462,31 @@ endfunction()
 
 set(generated "// quine_pack が生成したファイル。手で直さない（tools/quine_pack/quine_pack.cmake、ADR 0002）\n")
 string(APPEND generated "#include \"enemies/enemy_text.h\"\n\nnamespace stg {\n\n")
-list(LENGTH range_ids enemy_count)
+set(enemy_ids ${range_ids} ${quine_ids})
+list(SORT enemy_ids)
+list(LENGTH enemy_ids enemy_count)
 if(enemy_count EQUAL 0)
     string(APPEND generated "std::span<const EnemyText> all_enemy_texts() {\n    return {};\n}\n")
 else()
     string(APPEND generated "namespace {\n\nconstexpr EnemyText ENEMY_TEXTS[] = {\n")
-    foreach(id IN LISTS range_ids)
-        get_property(code GLOBAL PROPERTY QP_RANGE_${id}_CODE)
+    foreach(id IN LISTS enemy_ids)
         set(columns ${mask_${id}_columns})
         set(rows ${mask_${id}_rows})
-        fill_mask("${code}" "${mask_${id}_cells}" text)
+        if(id IN_LIST quine_ids)
+            get_property(text GLOBAL PROPERTY QP_QUINE_${id}_TEXT)
+            set(note "${quine_rel_dir}/${id}.cpp の Quine をそのまま使った")
+        else()
+            get_property(code GLOBAL PROPERTY QP_RANGE_${id}_CODE)
+            fill_mask("${code}" "${mask_${id}_cells}" text)
+            fill_note("${code}" ${mask_${id}_hashes} note)
+        endif()
         rows_as_literals("${mask_${id}_cells}" ${columns} ${rows} "," mask_literals)
         rows_as_literals("${text}" ${columns} ${rows} "," text_literals)
         string(APPEND generated "    {\n        \"${id}\", ${columns}, ${rows},\n")
         string(APPEND generated "        // マスク\n${mask_literals}")
         string(APPEND generated "        // テキスト\n${text_literals}")
         string(APPEND generated "    },\n")
-
-        string(LENGTH "${code}" code_len)
-        set(hashes ${mask_${id}_hashes})
-        if(code_len GREATER hashes)
-            math(EXPR cut "${code_len} - ${hashes}")
-            set(note "${cut} 文字を切り捨てた")
-        elseif(code_len LESS hashes)
-            set(note "繰り返して詰めた")
-        else()
-            set(note "ちょうど詰めた")
-        endif()
-        message(STATUS "quine_pack: ${id}（${columns}列×${rows}行、# ${hashes} マス、コード ${code_len} 文字。${note}）")
+        message(STATUS "quine_pack: ${id}（${columns}列×${rows}行、${note}）")
     endforeach()
     string(APPEND generated "};\n\n}  // namespace\n\n")
     string(APPEND generated "std::span<const EnemyText> all_enemy_texts() {\n    return ENEMY_TEXTS;\n}\n")

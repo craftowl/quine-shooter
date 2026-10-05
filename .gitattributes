@@ -1,0 +1,3 @@
+# ボスの Quine（quines/）は、改行を1字も変えずに取り出す。Windows の core.autocrlf=true で CRLF に変わると、
+# 自分を出力しなくなり、quine_pack も違反として止めるため（ADR 0009、tasks.md の「T15c の着手前に決めたこと」）
+quines/** -text

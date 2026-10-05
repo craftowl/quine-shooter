@@ -89,16 +89,18 @@ add_executable(2DShooting
     src/render/text_renderer.cpp
 )
 
-# 敵（ADR 0002、design.md §4、tasks.md の T15b）。src/enemies/ のソースは、足しても CMake の設定をやり直さずに
-# ビルドに入るように、一覧を取り直して足す。quine_pack が、ソースとマスクから、敵の体のテキストを埋め込む
-# .cpp を生成する（入力が変わったときだけ動く）。quine_pack には絶対パスを渡す
+# 敵（ADR 0002、ADR 0009、design.md §4、tasks.md の T15b と T15c1）。src/enemies/ のソースは、足しても CMake の設定を
+# やり直さずにビルドに入るように、一覧を取り直して足す。quine_pack が、ソースとマスクとボスの Quine（quines/）から、
+# 敵の体のテキストを埋め込む .cpp を生成する（入力が変わったときだけ動く）。quine_pack には絶対パスを渡す。
+# quines/ の .cpp はゲームのビルドに入れない（体のテキストとして読むだけ）
 file(GLOB_RECURSE ENEMY_SOURCES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/src/enemies/*.h ${CMAKE_SOURCE_DIR}/src/enemies/*.cpp)
 file(GLOB ENEMY_MASKS CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/data/masks/*.txt)
-set(QUINE_PACK ${CMAKE_SOURCE_DIR}/tools/quine_pack/quine_pack.cmake)
+file(GLOB BOSS_QUINES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/quines/*.cpp)
+set(QUINE_PACK_FILES ${CMAKE_SOURCE_DIR}/tools/quine_pack/quine_pack.cmake ${CMAKE_SOURCE_DIR}/tools/quine_pack/boss_quine.cmake)
 set(ENEMY_TEXT_DATA ${CMAKE_BINARY_DIR}/generated/enemy_text_data.cpp)
 # 入力のファイルの一覧を書き出し、生成の依存に入れる。ファイルを消したときも生成し直すため
 # （残ったファイルは生成物より古いので、一覧がないと消した敵のテキストが残る）。中身が変わったときだけ書き換わる
-string(REPLACE ";" "\n" ENEMY_INPUT_LIST "${ENEMY_SOURCES};${ENEMY_MASKS}")
+string(REPLACE ";" "\n" ENEMY_INPUT_LIST "${ENEMY_SOURCES};${ENEMY_MASKS};${BOSS_QUINES}")
 set(ENEMY_INPUTS ${CMAKE_BINARY_DIR}/generated/enemy_inputs.txt)
 file(CONFIGURE OUTPUT ${ENEMY_INPUTS} CONTENT "${ENEMY_INPUT_LIST}\n")
 add_custom_command(
@@ -106,10 +108,11 @@ add_custom_command(
     COMMAND ${CMAKE_COMMAND}
         -DENEMY_DIR=${CMAKE_SOURCE_DIR}/src/enemies
         -DMASK_DIR=${CMAKE_SOURCE_DIR}/data/masks
+        -DQUINE_DIR=${CMAKE_SOURCE_DIR}/quines
         -DOUTPUT=${ENEMY_TEXT_DATA}
         -DBASE_DIR=${CMAKE_SOURCE_DIR}
-        -P ${QUINE_PACK}
-    DEPENDS ${ENEMY_SOURCES} ${ENEMY_MASKS} ${ENEMY_INPUTS} ${QUINE_PACK}
+        -P ${CMAKE_SOURCE_DIR}/tools/quine_pack/quine_pack.cmake
+    DEPENDS ${ENEMY_SOURCES} ${ENEMY_MASKS} ${BOSS_QUINES} ${ENEMY_INPUTS} ${QUINE_PACK_FILES}
     COMMENT "quine_pack で敵の体のテキストを生成する"
     VERBATIM
 )

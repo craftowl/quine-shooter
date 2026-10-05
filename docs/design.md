@@ -81,12 +81,13 @@ int main() {
     params.json           # 調整値
     waves/                # ウェーブ定義
     masks/                # 敵の形のマスク（*.txt）
+  quines/                 # ボスの体のテキストにする、生成した本物の Quine（<敵ID>.cpp。ADR 0009）
   assets/
     README.md             # 素材の出典とライセンスの一覧
     fonts/                # JetBrains Mono と OFL.txt
     sounds/
   tools/
-    quine_pack/           # ビルド時に QUINE 範囲を切り出して検査し、マスクに流し込むツール（CMake スクリプト）と、そのテスト
+    quine_pack/           # ビルド時に QUINE 範囲を切り出して検査し、マスクに流し込むツール（CMake スクリプト）と、そのテスト。ボスの Quine のファイルの検査は boss_quine.cmake
   web/
     shell.html            # Web 版の HTML テンプレート
 ```
@@ -102,9 +103,9 @@ int main() {
 
 ルールの詳細は [ADR 0002](decisions/0002-quine-enemy-text.md)。
 
-ボス（`boss_` で始まる ID の敵）は、上の 1・2・4・5 を使わない。2 のうちマスクの先頭の BOM の検査と、3 のうち範囲とマスクの対応を除く検査（使える文字、行の長さ、`#` の数、大きさの上限）は、ボスにも行う。体のテキストは、前もって生成してリポジトリに置いた本物の Quine（C++）から取り、マスクの形になっているかを確かめる。生成ツールは C++ で書き、ゲームのビルドとは別の小さな CMake プロジェクト（`tools/quine_gen/`）としてデスクトップでだけ作り、開発者が動かす。CI は、生成し直して同じになることと、コンパイル・実行・比較で自分を出力することを確かめる（[ADR 0009](decisions/0009-boss-quine.md)。T15c1 と T15c2 で作る。それまでは quine_pack がボスも雑魚と同じく扱う）。
+ボス（`boss_` で始まる ID の敵）は、上の 1・2・4・5 を使わない。2 のうちマスクの先頭の BOM の検査と、3 のうち範囲とマスクの対応を除く検査（使える文字、行の長さ、`#` の数、大きさの上限）は、ボスにも行う。体のテキストは、前もって生成して `quines/<敵ID>.cpp` に置いた本物の Quine（C++）から取る。quine_pack は、ボスのマスクと Quine のファイルが1対1で対応し、Quine のファイルがマスクの形と1文字もずれていないこと（`.` は空白、`$` は `$`、`#` は空白と `$` のほかの表示できる ASCII、改行は LF だけで最後の行にもある）を確かめ、そのまま埋め込む（T15c1）。`boss_` で始まる ID の QUINE 範囲と、`quines/` の `boss_` で始まらない `.cpp` は、ビルドエラーにする。生成ツールは C++ で書き、ゲームのビルドとは別の小さな CMake プロジェクト（`tools/quine_gen/`）としてデスクトップでだけ作り、開発者が動かす。CI は、生成し直して同じになることと、コンパイル・実行・比較で自分を出力することを確かめる（[ADR 0009](decisions/0009-boss-quine.md)。生成ツールと CI は T15c2 で作る）。
 
-決定（2026-10-03）：`tools/quine_pack/quine_pack.cmake`（CMake スクリプト）で書き、入力（`src/enemies/` のソースと `data/masks/` のマスク）が変わったときだけ動かす。C++ で書くと、Web 版のビルド（emcmake）では em++ でコンパイルされるので、ビルドの途中でそのままでは実行できない。CMake スクリプトなら、この問題は起きず、依存も増えない。`src/enemies/` の外の QUINE マーカーは、`cmake/check_sources.cmake` が止める。埋め込みの型と関数の形、テストのしかたは [tasks.md](tasks.md) の T15。
+決定（2026-10-03）：`tools/quine_pack/quine_pack.cmake`（CMake スクリプト）で書き、入力（`src/enemies/` のソースと `data/masks/` のマスク。T15c1 から `quines/` のボスの Quine も）が変わったときだけ動かす。C++ で書くと、Web 版のビルド（emcmake）では em++ でコンパイルされるので、ビルドの途中でそのままでは実行できない。CMake スクリプトなら、この問題は起きず、依存も増えない。`src/enemies/` の外の QUINE マーカーは、`cmake/check_sources.cmake` が止める。埋め込みの型と関数の形、テストのしかたは [tasks.md](tasks.md) の T15。
 
 マスクは実行時には読まない。直したらビルドし直す（ホットリロードでは変わらない）。`data/` ごと配布物に入るのは許す。
 

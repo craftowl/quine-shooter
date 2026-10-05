@@ -16,12 +16,25 @@ constexpr EnemyText ENEMY_TEXTS[] = {
         "####.################.####"
         ".####.##..........##.####.",
         // テキスト
-        "   Vector2boss_ok_move(   "
-        " Vector2p,floatt){returnV "
-        " ector$2{p.x+t,p.y}$;}flo "
-        "atboss_ok_angle(floata){re"
-        "turn a*DEG2RAD+PI/2;} floa"
-        " tbos s_          ok _sca ",
+        "   R\"(@\\\"'\\\\#%&*+,-./:;   "
+        " <=>?[]^_`{|}~)\";int(main "
+        " )(){r$eturn(0);}R\"$(@\\\"' "
+        "\\\\#%&*+,-./:;<=>?[]^_`{|}~"
+        ")\";i nt(main)(){retur n(0)"
+        " ;}R\" (@          \\\" '\\\\# ",
+    },
+    {
+        "zako_cut", 12, 4,
+        // マスク
+        "..########.."
+        ".####$$####."
+        "############"
+        ".##.####.##.",
+        // テキスト
+        "  Vector2z  "
+        " ako_$$cut_ "
+        "move(Vector2"
+        " p, floa tt ",
     },
     {
         "zako_ok", 16, 6,
