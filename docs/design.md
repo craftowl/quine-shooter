@@ -102,7 +102,7 @@ int main() {
 
 ルールの詳細は [ADR 0002](decisions/0002-quine-enemy-text.md)。
 
-ボス（`boss_` で始まる ID の敵）は、上の 1・2・4・5 を使わない。2 のうちマスクの先頭の BOM の検査と、3 のうち範囲とマスクの対応を除く検査（使える文字、行の長さ、`#` の数、大きさの上限）は、ボスにも行う。体のテキストは、前もって生成してリポジトリに置いた本物の Quine（C++）から取り、マスクの形になっているかを確かめる。生成ツールは C++ で書き、デスクトップのビルドでだけ作って開発者が動かす。CI は、生成し直して同じになることと、コンパイル・実行・比較で自分を出力することを確かめる（[ADR 0009](decisions/0009-boss-quine.md)。T15c で作る。それまでは quine_pack がボスも雑魚と同じく扱う）。
+ボス（`boss_` で始まる ID の敵）は、上の 1・2・4・5 を使わない。2 のうちマスクの先頭の BOM の検査と、3 のうち範囲とマスクの対応を除く検査（使える文字、行の長さ、`#` の数、大きさの上限）は、ボスにも行う。体のテキストは、前もって生成してリポジトリに置いた本物の Quine（C++）から取り、マスクの形になっているかを確かめる。生成ツールは C++ で書き、ゲームのビルドとは別の小さな CMake プロジェクト（`tools/quine_gen/`）としてデスクトップでだけ作り、開発者が動かす。CI は、生成し直して同じになることと、コンパイル・実行・比較で自分を出力することを確かめる（[ADR 0009](decisions/0009-boss-quine.md)。T15c1 と T15c2 で作る。それまでは quine_pack がボスも雑魚と同じく扱う）。
 
 決定（2026-10-03）：`tools/quine_pack/quine_pack.cmake`（CMake スクリプト）で書き、入力（`src/enemies/` のソースと `data/masks/` のマスク）が変わったときだけ動かす。C++ で書くと、Web 版のビルド（emcmake）では em++ でコンパイルされるので、ビルドの途中でそのままでは実行できない。CMake スクリプトなら、この問題は起きず、依存も増えない。`src/enemies/` の外の QUINE マーカーは、`cmake/check_sources.cmake` が止める。埋め込みの型と関数の形、テストのしかたは [tasks.md](tasks.md) の T15。
 
@@ -119,7 +119,7 @@ int main() {
 | Web 版でファイルを開く基準（[ADR 0006](decisions/0006-error-handling.md) の「実行ファイルの場所を基準に開く」が、Web では成り立たない） | 決定（2026-09-24）：`GetApplicationDirectory()` の結果をそのまま使う（Web では `"/"` を返す）。ADR 0006 §6 と AGENT.md に書いた | — |
 | 書式（インデントなど） | 決定（2026-09-24）：AI が決めて完了報告に書く。clang-format は入れない | — |
 | 押した瞬間の入力の扱い（`update()` が0回や2回呼ばれるフレーム） | 押した瞬間の入力を最初に使うとき（シーン遷移） | 押した瞬間を次の `update()` まで持ち越す、`update()` ごとに押しているかどうかの変化から判定する |
-| ボスの体のテキストを本物の Quine にするか（[ADR 0002](decisions/0002-quine-enemy-text.md) の考え方の見直し。雑魚は今の方式のまま） | 決定（2026-10-05）：本物の Quine（C++）にする。前もって生成して置き、生成ツールは C++、形は1つ、CI では `-Wno-misleading-indentation` を足してゲームと同じ警告の設定でコンパイルする（gcc で出るほかの警告は、T15c で確かめて決める）。詳しくは [ADR 0009](decisions/0009-boss-quine.md) と [tasks.md](tasks.md) の T15q、T15c | — |
+| ボスの体のテキストを本物の Quine にするか（[ADR 0002](decisions/0002-quine-enemy-text.md) の考え方の見直し。雑魚は今の方式のまま） | 決定（2026-10-05）：本物の Quine（C++）にする。前もって生成して置き、生成ツールは C++、形は1つ、CI では `-Wno-misleading-indentation` を足してゲームと同じ警告の設定でコンパイルする（gcc で出る `-Wparentheses` は、生成ツールの出力部の書き換えで消す。T15c の着手前に決めた）。詳しくは [ADR 0009](decisions/0009-boss-quine.md) と [tasks.md](tasks.md) の T15q、T15c の着手前に決めたこと | — |
 | Windows 版をビルドするコンパイラ（[ADR 0004](decisions/0004-platforms.md)。例外と警告の設定に関係する。決めたら、コンパイラの最低バージョンを [ADR 0001](decisions/0001-tech-stack.md) に書く） | 決定（2026-10-02）：MSVC（Visual Studio 2026 以上）。ジェネレータは Visual Studio。詳しくは [tasks.md](tasks.md) の T10 | — |
 | シーン管理 | シーン遷移を作るとき | `std::variant`、仮想関数、列挙型と switch |
 | エンティティ管理 | 弾を作るとき | 種類ごとのプール、ECS 風の配列、継承（[ADR 0007](decisions/0007-dynamic-allocation.md) により、出現のたびに `new` する形は使えない。先に確保したオブジェクトを使う） |
