@@ -16,12 +16,12 @@ constexpr EnemyText ENEMY_TEXTS[] = {
         "####.################.####"
         ".####.##..........##.####.",
         // テキスト
-        "   Vector2 boss_ok_move   "
-        " (Vector2 p, float t) { r "
-        " eturn$ Vector2{p.x$ + t, "
-        " p.y}; } float boss_ok_ang"
-        "le(f loat a) { return  a *"
-        "  DEG 2R          AD  + P ",
+        "   Vector2boss_ok_move(   "
+        " Vector2p,floatt){returnV "
+        " ector$2{p.x+t,p.y}$;}flo "
+        "atboss_ok_angle(floata){re"
+        "turn a*DEG2RAD+PI/2;} floa"
+        " tbos s_          ok _sca ",
     },
     {
         "zako_ok", 16, 6,
@@ -33,12 +33,12 @@ constexpr EnemyText ENEMY_TEXTS[] = {
         ".##..######..##."
         "...##......##...",
         // テキスト
-        "    float za    "
-        "  ko_ok(float   "
-        " s) ${ retu$rn  "
-        "s * 0.5f; } floa"
-        " t   zako_o  k( "
-        "   fl      oa   ",
+        "    floatzak    "
+        "  o_ok(floats)  "
+        " {re$turns*$0.5 "
+        "f;}floatzako_ok("
+        " fl  oats){  re "
+        "   tu      rn   ",
     },
 };
 

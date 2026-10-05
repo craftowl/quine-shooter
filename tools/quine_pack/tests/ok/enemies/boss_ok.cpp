@@ -6,4 +6,8 @@ Vector2 boss_ok_move(Vector2 p, float t) {
 
 float boss_ok_angle(float a) { return a * DEG2RAD
     + PI / 2; }
+
+float boss_ok_scale(float v) {
+    return v * 0.5f + 1;
+}
 // QUINE-END
