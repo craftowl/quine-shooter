@@ -9,6 +9,7 @@
 - 更新: 2026-09-24（手元の環境のバージョンを直した。Xcode 26.3 と Command Line Tools 27 の組み合わせではリンクできなかったため、Command Line Tools 27 に切り替えた）
 - 更新: 2026-10-02（GitHub Actions のアクションの固定のしかたを書き足した。コミットの SHA で固定し、リポジトリの設定で強制する。許可するのは `actions/*` だけ。emsdk のリポジトリも、CI と README でタグ `6.0.9` を指定して clone する。T11）
 - 更新: 2026-10-02（Windows 版のコンパイラを MSVC に決め、最低バージョンを Visual Studio 2026 と書いた。Windows 版に要る CMake の最低バージョン（4.2）と、macOS の Apple clang の最低バージョンも書いた。CI のランナーイメージの名前も書いた。T10）
+- 更新: 2026-11-17（ボスの Quine の生成ツールと Quine を CI でコンパイルする g++ の最低バージョンを書いた。CI の `ubuntu-24.04` の g++ 13.3.0 で確かめた。T15c2）
 
 ## 前提（Step 0）
 
@@ -41,7 +42,7 @@
 | 対象 | 決め方 |
 | --- | --- |
 | ライブラリ、フォント、Emscripten（emsdk）、GitHub Actions のアクション、開発用のツール | バージョンを固定する |
-| CMake、コンパイラ | 最低バージョンを書く。CMake は 3.25 以上。ただし Windows 版は、Visual Studio 2026 のジェネレータ（`Visual Studio 18 2026`）が使える 4.2 以上。コンパイラは、Windows 版が MSVC で Visual Studio 2026 以上（CI の `windows-2025-vs2026` で確かめる版。T10）、macOS 版が Apple clang 21.0.0（Command Line Tools 27）以上（手元で確かめた版。macOS は開発にだけ使う）。Emscripten は 6.0.9 に固定する |
+| CMake、コンパイラ | 最低バージョンを書く。CMake は 3.25 以上。ただし Windows 版は、Visual Studio 2026 のジェネレータ（`Visual Studio 18 2026`）が使える 4.2 以上。コンパイラは、Windows 版が MSVC で Visual Studio 2026 以上（CI の `windows-2025-vs2026` で確かめる版。T10）、macOS 版が Apple clang 21.0.0（Command Line Tools 27）以上（手元で確かめた版。macOS は開発にだけ使う）。ボスの Quine の生成ツール（`tools/quine_gen/`）と Quine を CI でコンパイルする g++ は 13.3.0 以上（CI の `ubuntu-24.04` で確かめた版。T15c2）。Emscripten は 6.0.9 に固定する |
 | CI のランナーイメージ | 名前で指定する。`windows-latest` のように中身が変わる名前は使わない。Web 版は `ubuntu-24.04`（T11）、Windows 版は `windows-2025-vs2026`（T10）。`windows-2025` は、指すイメージが VS 2022 のものから VS 2026 のものに変わったので使わない |
 
 GitHub Actions のアクションは、タグではなくコミットの SHA（40桁）で固定し、バージョンを注釈に書く（例：`uses: actions/checkout@<SHA> # v5.0.0`）。タグは付け替えられるので、同じタグでも中身が変わることがある。リポジトリの設定（Settings → Actions → General）で、SHA で固定することを必須にし、許可するアクションを絞る（[GitHub の 2025-08-15 の変更](https://github.blog/changelog/2025-08-15-github-actions-policy-now-supports-blocking-and-sha-pinning-actions/)で設定できるようになった）。SHA で固定していないアクションを使うと、ワークフローが失敗する。許可するのは `actions/*` だけにする（T11 で決めた）

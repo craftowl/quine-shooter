@@ -130,7 +130,7 @@ emrun --no-browser --hostname 127.0.0.1 build/web-debug/2DShooting.html
 
 手順は macOS と Linux の分だけを書く。どれもリポジトリの直下で打つ。
 
-確かめた環境（2026-11-16）：macOS 27.2、Apple clang 21.0.0（Command Line Tools 27.2）、CMake 4.4.5。CI（GitHub Actions の `ubuntu-24.04` の g++）でも、`main` に push するたびに下の「まとめて確かめる」を動かす（手動でも動かせる）。
+確かめた環境（2026-11-16）：macOS 27.2、Apple clang 21.0.0（Command Line Tools 27.2）、CMake 4.4.5。CI（GitHub Actions の `ubuntu-24.04` の g++。2026-11-17 に g++ 13.3.0 で確かめた）でも、`main` に push するたびに下の「まとめて確かめる」を動かす（手動でも動かせる）。
 
 ### 1つの Quine を確かめる
 
