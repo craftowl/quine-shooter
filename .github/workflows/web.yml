@@ -29,6 +29,13 @@ jobs:
         if: matrix.config == 'Debug'
         run: cmake -P tools/quine_pack/tests/run_tests.cmake
 
+      # ボスの Quine の確かめ（docs/tasks.md の T15c2、ADR 0009）。構成に関係しないので Debug のときだけ流す。
+      # 生成ツールを作り、quines/ の .cpp ごとに、生成し直して同じになることと、ランナーの c++（g++）で
+      # コンパイルして実行すると自分を出力することを確かめる。README の「まとめて確かめる」と同じ
+      - name: ボスの Quine の確かめ
+        if: matrix.config == 'Debug'
+        run: cmake -P tools/quine_gen/check_quine.cmake
+
       # README の「emsdk を入れる」と同じ手順。キャッシュは使わない
       - name: emsdk を入れる
         run: |

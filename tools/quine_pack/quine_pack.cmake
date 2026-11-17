@@ -395,10 +395,11 @@ endif()
 
 # ---- 4. マスクの # に詰めて（ボスは Quine のファイルのまま）、生成する .cpp を組み立てる（ADR 0002 のルール3） ----
 
-# C++ の文字列リテラルの中身にする（\ と " をエスケープする）
+# C++ の文字列リテラルの中身にする（\ を先に、" と ? を後でエスケープ。? は三文字表記の警告を避けて全部 \?。T15c2）
 function(escape_cpp text out_var)
     string(REPLACE "\\" "\\\\" text "${text}")
     string(REPLACE "\"" "\\\"" text "${text}")
+    string(REPLACE "?" "\\?" text "${text}")
     set(${out_var} "${text}" PARENT_SCOPE)
 endfunction()
 

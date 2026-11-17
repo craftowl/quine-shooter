@@ -123,3 +123,47 @@ emrun build/web-debug/2DShooting.html
 emrun --no-browser --hostname 127.0.0.1 build/web-debug/2DShooting.html
 # ブラウザで http://127.0.0.1:6931/2DShooting.html を開く
 ```
+
+## ボスの体の Quine
+
+ボス（`boss_` で始まる ID の敵）の体のテキストは、`quines/<敵ID>.cpp` に置いた本物の C++ の Quine になっている。コンパイルして実行すると、行末の空白も含めて1バイトも違わない自分を出力する（[ADR 0009](docs/decisions/0009-boss-quine.md)）。Quine は、生成ツール `tools/quine_gen/` が、マスク `data/masks/<敵ID>.txt` から作る。ゲームは、Quine のファイルをそのまま体のテキストとして埋め込む。
+
+手順は macOS と Linux の分だけを書く。どれもリポジトリの直下で打つ。
+
+確かめた環境（2026-11-16）：macOS 27.2、Apple clang 21.0.0（Command Line Tools 27.2）、CMake 4.4.5。CI（GitHub Actions の `ubuntu-24.04` の g++）でも、`main` に push するたびに下の「まとめて確かめる」を動かす（手動でも動かせる）。
+
+### 1つの Quine を確かめる
+
+```sh
+mkdir -p build/quine_try
+# コンパイルして実行し、出力を元のファイルと比べる（cmp が何も出さなければ一致）
+c++ -std=c++20 -Wall -Wextra -Wpedantic -Werror -fno-exceptions -Wno-misleading-indentation quines/boss_dummy.cpp -o build/quine_try/boss_dummy
+./build/quine_try/boss_dummy > build/quine_try/boss_dummy.cpp
+cmp quines/boss_dummy.cpp build/quine_try/boss_dummy.cpp
+
+# 出力をもう一度コンパイルして実行しても、同じものを出力する
+c++ -std=c++20 -Wall -Wextra -Wpedantic -Werror -fno-exceptions -Wno-misleading-indentation build/quine_try/boss_dummy.cpp -o build/quine_try/boss_dummy2
+./build/quine_try/boss_dummy2 | cmp quines/boss_dummy.cpp -
+```
+
+コンパイルの設定はゲームと同じで、形に並べたことで避けられない字下げの警告（`-Wno-misleading-indentation`）だけを外している。設定の元は `tools/quine_gen/check_quine.cmake` の `QUINE_FLAGS` で、上のコマンドはそれを書き写したもの（変えるときは、元を先に変える）。
+
+### まとめて確かめる
+
+```sh
+cmake -P tools/quine_gen/check_quine.cmake
+```
+
+生成ツールを `build/quine_gen` に作り、`quines/` のすべての `.cpp` について、マスクから生成し直すと同じになることと、上と同じ設定でコンパイルして実行すると自分を出力することを確かめる。最後に `check_quine: 1 件すべて合った` のように出れば成功で、合わなければ、どのファイルのどの確かめで合わなかったかを出して失敗する。
+
+### 生成し直す
+
+マスクを変えたら、Quine を生成し直す。生成し直さないと、形が合わないので、ゲームのビルドが quine_pack で止まる。
+
+```sh
+cmake -S tools/quine_gen -B build/quine_gen
+cmake --build build/quine_gen
+./build/quine_gen/quine_gen data/masks/boss_dummy.txt quines/boss_dummy.cpp
+```
+
+Quine は、行末の空白も中身の一部になっている。エディタで開いて保存するときに、行末の空白を消したり改行を変えたりしないようにする（`quines/.editorconfig` と `.gitattributes` で守っている）。
