@@ -14,8 +14,14 @@ struct PlayerParams {
     Vector2 start_position{};   // 480×640 の座標（当たり判定の中心。復活の位置も同じ）
 };
 
+struct ShotParams {
+    float interval = 0.0f;      // 秒（撃ってから次に撃つまで。tasks.md T14 の決定7）
+    float bullet_speed = 0.0f;  // px/秒（上向き）
+};
+
 struct Params {
     PlayerParams player;
+    ShotParams shot;
 };
 
 // text（params.json の中身）の型と範囲を確かめて解釈する。失敗したら、理由（英語。キーの名前を含む）を

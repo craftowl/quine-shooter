@@ -3,5 +3,9 @@
     "normal_speed": 300,
     "slow_speed": 120,
     "start_position": { "x": 240, "y": 560 }
+  },
+  "shot": {
+    "interval": 0.1,
+    "bullet_speed": 960
   }
 }

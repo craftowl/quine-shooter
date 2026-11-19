@@ -21,7 +21,7 @@ void shutdown_overlay() {
     rlImGuiShutdown();
 }
 
-void draw_overlay(const char* reload_status) {
+void draw_overlay(const char* reload_status, const ObjectCounts& counts) {
     rlImGuiBegin();
     ImGui::SetNextWindowPos(ImVec2(8.0f, 8.0f), ImGuiCond_FirstUseEver);
     ImGui::Begin("Debug", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
@@ -30,6 +30,9 @@ void draw_overlay(const char* reload_status) {
     // 前のフレームの確保回数と、起動後の違反の累計（ADR 0007）
     ImGui::Text("Alloc/frame: %d", last_frame_allocations());
     ImGui::Text("Alloc violations: %d", allocation_violations());
+    // オブジェクトの数（tasks.md T14）
+    ImGui::Text("Player bullets: %zu / %zu", counts.player_bullets, counts.player_bullet_capacity);
+    ImGui::Text("Player bullets dropped: %zu", counts.player_bullets_dropped);
     // 調整値のホットリロードの最後の結果（tasks.md の T12）。失敗の理由は長いので、折り返す
     if (reload_status[0] != '\0') {
         ImGui::PushTextWrapPos(320.0f);

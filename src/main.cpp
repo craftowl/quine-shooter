@@ -305,9 +305,9 @@ void render() {
     text_renderer.end();
 #ifdef DEBUG
     if constexpr (HOT_RELOAD_AVAILABLE) {
-        debug::draw_overlay(params_reloader.last_status());
+        debug::draw_overlay(params_reloader.last_status(), game.object_counts());
     } else {
-        debug::draw_overlay("");
+        debug::draw_overlay("", game.object_counts());
     }
 #endif
     EndDrawing();

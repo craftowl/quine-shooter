@@ -15,6 +15,8 @@ using nlohmann::json;
 
 // 速さの上限（px/秒）。画面の幅の10倍/秒（design.md §5）。上限がないと、float にしたときに無限大になりうる
 constexpr double MAX_SPEED = 4800.0;
+// 撃つ間隔の上限（秒）。それより遅いと、撃ち続けているように見えない（tasks.md T14 の決定7）
+constexpr double MAX_SHOT_INTERVAL = 1.0;
 
 // 失敗の理由を error に入れ、TraceLog に出す（ADR 0006）
 void fail(std::string& error, std::string reason) {
@@ -81,12 +83,23 @@ bool check_range(double number, double min, bool min_inclusive, double max, cons
     return false;
 }
 
-std::optional<float> read_speed(const json& player, const char* name, const char* path, std::string& error) {
-    const std::optional<double> speed = find_number(player, name, path, error);
+// 0 より大きい値を float に変える。double では 0 より大きくても、float では 0 になるほど小さい値（1e-50 など）は、
+// 範囲の外として失敗にする（T14 のレビューの指摘）
+std::optional<float> to_positive_float(double number, const char* path, std::string& error) {
+    const float value = static_cast<float>(number);
+    if (value <= 0.0f) {
+        fail(error, TextFormat("Out of range: %s is %g (too small; must be > 0 as a float)", path, number));
+        return std::nullopt;
+    }
+    return value;
+}
+
+std::optional<float> read_speed(const json& object, const char* name, const char* path, std::string& error) {
+    const std::optional<double> speed = find_number(object, name, path, error);
     if (!speed.has_value() || !check_range(*speed, 0.0, false, MAX_SPEED, path, error)) {
         return std::nullopt;
     }
-    return static_cast<float>(*speed);
+    return to_positive_float(*speed, path, error);
 }
 
 std::optional<Vector2> read_position(const json& player, const char* name, const char* path, std::string& error) {
@@ -121,7 +134,7 @@ std::optional<Params> parse_params(const char* text, std::string& error) {
         fail(error, "The top level is not an object");
         return std::nullopt;
     }
-    warn_unknown_keys(root, "", {"player"});
+    warn_unknown_keys(root, "", {"player", "shot"});
 
     const json* player = find_object(root, "player", "player", error);
     if (player == nullptr) {
@@ -146,6 +159,27 @@ std::optional<Params> parse_params(const char* text, std::string& error) {
     params.player.normal_speed = *normal_speed;
     params.player.slow_speed = *slow_speed;
     params.player.start_position = *start_position;
+
+    // 自機の弾（tasks.md T14）
+    const json* shot = find_object(root, "shot", "shot", error);
+    if (shot == nullptr) {
+        return std::nullopt;
+    }
+    warn_unknown_keys(*shot, "shot.", {"interval", "bullet_speed"});
+    const std::optional<double> interval = find_number(*shot, "interval", "shot.interval", error);
+    if (!interval.has_value() || !check_range(*interval, 0.0, false, MAX_SHOT_INTERVAL, "shot.interval", error)) {
+        return std::nullopt;
+    }
+    const std::optional<float> interval_float = to_positive_float(*interval, "shot.interval", error);
+    if (!interval_float.has_value()) {
+        return std::nullopt;
+    }
+    const std::optional<float> bullet_speed = read_speed(*shot, "bullet_speed", "shot.bullet_speed", error);
+    if (!bullet_speed.has_value()) {
+        return std::nullopt;
+    }
+    params.shot.interval = *interval_float;
+    params.shot.bullet_speed = *bullet_speed;
     return params;
 }
 
