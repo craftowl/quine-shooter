@@ -134,7 +134,7 @@ std::optional<Params> parse_params(const char* text, std::string& error) {
         fail(error, "The top level is not an object");
         return std::nullopt;
     }
-    warn_unknown_keys(root, "", {"player", "shot"});
+    warn_unknown_keys(root, "", {"player", "shot", "enemies"});
 
     const json* player = find_object(root, "player", "player", error);
     if (player == nullptr) {
@@ -180,6 +180,23 @@ std::optional<Params> parse_params(const char* text, std::string& error) {
     }
     params.shot.interval = *interval_float;
     params.shot.bullet_speed = *bullet_speed;
+
+    // 敵ごとの値（tasks.md T16 の決定4）
+    const json* enemies = find_object(root, "enemies", "enemies", error);
+    if (enemies == nullptr) {
+        return std::nullopt;
+    }
+    warn_unknown_keys(*enemies, "enemies.", {"zako_dummy"});
+    const json* zako_dummy = find_object(*enemies, "zako_dummy", "enemies.zako_dummy", error);
+    if (zako_dummy == nullptr) {
+        return std::nullopt;
+    }
+    warn_unknown_keys(*zako_dummy, "enemies.zako_dummy.", {"speed"});
+    const std::optional<float> zako_dummy_speed = read_speed(*zako_dummy, "speed", "enemies.zako_dummy.speed", error);
+    if (!zako_dummy_speed.has_value()) {
+        return std::nullopt;
+    }
+    params.enemies.zako_dummy.speed = *zako_dummy_speed;
     return params;
 }
 

@@ -9,6 +9,9 @@
 #   4. QUINE マーカー（行の先頭の // QUINE-BEGIN と // QUINE-END）を、src/enemies/ の外に書いている（tasks.md の T15b）。
 #      マーカーはコメントなので、この検査だけは、コメントを取り除く前の行で行う。
 #      マーカーと認める行は、quine_pack（tools/quine_pack/quine_pack.cmake）と同じ
+#   5. raylib の Draw* を、main.cpp、src/render/、src/debug/ の外で使っている（tasks.md T16 の決定8）。
+#      名前の直前が英数字か _ でない位置にある「Draw ＋英大文字」の名前を探す（BeginDrawing などは当たらない）。
+#      呼び出しに限らず名前で探すので、名前と ( の間の改行や、関数ポインタで受ける書き方も見つかる
 # 500行を超えたファイルには警告だけを出す（wc -l と同じく、改行の数で数える）。
 # コメントと、文字列と文字のリテラルの中身は、検査の前に取り除く（生文字列 R"(...)" は扱わない）。
 
@@ -58,6 +61,9 @@ set(RESTRICTED_RULES
 )
 # メンバー関数の time() と clock()（stage.time() など）は対象外
 set(ALLOWED_MEMBER_TIME "(\\.|->)${WS}(time|clock)${WS}\\(")
+
+# raylib の描く関数の名前（tasks.md T16 の決定8）
+set(DRAW_REGEX "${B}Draw[A-Z]")
 
 set(violations "")
 set(violation_count 0)
@@ -188,6 +194,10 @@ foreach(path IN LISTS source_files)
     if(is_main OR rel MATCHES "^src/(core|debug)/")
         set(may_call_restricted TRUE)
     endif()
+    set(may_call_draw FALSE)
+    if(is_main OR rel MATCHES "^src/(render|debug)/")
+        set(may_call_draw TRUE)
+    endif()
 
     # main.cpp のプラットフォームの #if の状態
     set(pp_depth 0)
@@ -256,6 +266,11 @@ foreach(path IN LISTS source_files)
                     add_violation("${rel}" ${line_no} "入力・時間・乱数の関数は main.cpp、src/core/、src/debug/ でだけ使う: ${name}" "${line}")
                 endif()
             endforeach()
+        endif()
+
+        # 5. raylib の Draw*
+        if(NOT may_call_draw AND line MATCHES "${DRAW_REGEX}")
+            add_violation("${rel}" ${line_no} "raylib の Draw* は main.cpp、src/render/、src/debug/ でだけ使う（AGENT.md の「構造」）" "${line}")
         endif()
     endforeach()
 endforeach()

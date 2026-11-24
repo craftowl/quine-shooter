@@ -19,9 +19,20 @@ struct ShotParams {
     float bullet_speed = 0.0f;  // px/秒（上向き）
 };
 
+// 仮の雑魚 zako_dummy（tasks.md T16 の決定4）。T21 で置き換えるか消す
+struct ZakoDummyParams {
+    float speed = 0.0f;  // px/秒（下向き）
+};
+
+// 敵ごとの値。敵 ID ごとに入れ子にする
+struct EnemiesParams {
+    ZakoDummyParams zako_dummy;
+};
+
 struct Params {
     PlayerParams player;
     ShotParams shot;
+    EnemiesParams enemies;
 };
 
 // text（params.json の中身）の型と範囲を確かめて解釈する。失敗したら、理由（英語。キーの名前を含む）を

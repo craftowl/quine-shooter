@@ -7,5 +7,8 @@
   "shot": {
     "interval": 0.1,
     "bullet_speed": 960
+  },
+  "enemies": {
+    "zako_dummy": { "speed": 60 }
   }
 }

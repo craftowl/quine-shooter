@@ -80,7 +80,6 @@ add_executable(2DShooting
     src/core/window.cpp
     src/debug/allocation_counter.cpp
     src/debug/debug_overlay.cpp
-    src/debug/enemy_text_list.cpp
     src/debug/params_reloader.cpp
     src/game/game.cpp
     src/game/params.cpp

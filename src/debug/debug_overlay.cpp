@@ -7,7 +7,6 @@
 #include "rlImGui.h"
 
 #include "debug/allocation_counter.h"
-#include "debug/enemy_text_list.h"
 
 namespace stg::debug {
 
@@ -33,6 +32,8 @@ void draw_overlay(const char* reload_status, const ObjectCounts& counts) {
     // オブジェクトの数（tasks.md T14）
     ImGui::Text("Player bullets: %zu / %zu", counts.player_bullets, counts.player_bullet_capacity);
     ImGui::Text("Player bullets dropped: %zu", counts.player_bullets_dropped);
+    ImGui::Text("Zako: %zu / %zu", counts.zako, counts.zako_capacity);
+    ImGui::Text("Boss: %zu / %zu", counts.boss, counts.boss_capacity);
     // 調整値のホットリロードの最後の結果（tasks.md の T12）。失敗の理由は長いので、折り返す
     if (reload_status[0] != '\0') {
         ImGui::PushTextWrapPos(320.0f);
@@ -41,8 +42,6 @@ void draw_overlay(const char* reload_status, const ObjectCounts& counts) {
         ImGui::PopTextWrapPos();
     }
     ImGui::End();
-    // 埋め込んだ敵の体のテキスト（tasks.md の T15b）
-    draw_enemy_text_list();
     rlImGuiEnd();
 }
 
